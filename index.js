@@ -8,7 +8,7 @@ const app = express();
 const port = process.env.PORT || 3000;  // A Fly.io fornece a variável PORTT
 const { DateTime } = require("luxon");
 
-// --- Carregar contatos autorizados a partir do arquivo de texto ---
+// --- Carregar contatos autorizados a partir do arquivo de textoo ---
 let allowedContacts = [];
 try {
   const contactsData = fs.readFileSync("allowed.txt", "utf8");
