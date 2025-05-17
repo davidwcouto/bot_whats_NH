@@ -34,7 +34,8 @@ const client = new Client({
         }
 });
 
-let atendimentoHumano = new Set(); // Armazena usuários em atendimento humano
+let atendimentoHumano = new Set(); // Armazena usuários em atendimento humano0
+
 let clientesAtendidos = new Set(); // Garante que a mensagem inicial só seja enviada uma vez por cliente
 let usuariosPendentes = new Set(); // Armazena usuários que ainda não escolheram 1 ou 2
 let silencedChats = new Set(); // Lista de conversas silenciadas
