@@ -254,7 +254,7 @@ client.on("message", async (message) => {
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
       } else {
-			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 12h e de 13h às 18:30h. Sábado de 9h às 12h e de 13h às 18h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
 		}
@@ -347,7 +347,7 @@ if (!clientesAtendidos.has(chatId)) {
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida		
       } else {
-            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 12h e de 13h às 18:30h. Sábado de 9h às 12h e de 13h às 18h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
       
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
