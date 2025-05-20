@@ -1,3 +1,2 @@
-2025/05/20-00:21:14.488 55a4 Reusing MANIFEST C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Local Storage\leveldb/MANIFEST-000001
-2025/05/20-00:21:14.488 55a4 Recovering log #7
-2025/05/20-00:21:14.488 55a4 Reusing old log C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Local Storage\leveldb/000007.log 
+2025/05/20-15:45:06.904 2644 Creating DB C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Local Storage\leveldb since it was missing.
+2025/05/20-15:45:06.906 2644 Reusing MANIFEST C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Local Storage\leveldb/MANIFEST-000001
