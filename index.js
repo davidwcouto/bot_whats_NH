@@ -176,7 +176,7 @@ const estaDentroDoHorario = () => {
             return true; // Entre 13:00 e 18:00
         }
 
-        return false; // Fora do horário de atendimento ou dentro do intervalo de não atendimento
+        return false; // Fora do horário de atendimento ou dentro do intervalo de não atendimentoo
     }
 
     // Horário normal de segunda a sexta (09:00 - 18:00 com intervalo de almoço)
