@@ -35,7 +35,6 @@ const client = new Client({
 });
 
 let atendimentoHumano = new Set(); // Armazena usuários em atendimento humano
-
 let clientesAtendidos = new Set(); // Garante que a mensagem inicial só seja enviada uma vez por cliente
 let usuariosPendentes = new Set(); // Armazena usuários que ainda não escolheram 1 ou 2
 let silencedChats = new Set(); // Lista de conversas silenciadas
@@ -139,19 +138,19 @@ const removerPreposicoes = (str) => {
 
 const horarioAtendimento = {
     inicio: 9,        // 09:00
-    fim: 17,          // 18:00
+    fim: 18,          // 18:00
     minutosFim: 30,   // Até 18:30
     intervaloInicio: 12,   // Início do intervalo de não atendimento (12:00)
-    intervaloFim: 12,     // Fim do intervalo de não atendimento (13:00)
+    intervaloFim: 13,     // Fim do intervalo de não atendimento (13:00)
 };
 
 // Horário de atendimento especial para sabado
 const horarioSabado = {
     inicio: 9,        // 09:00
-    fim: 17,          // 18:00 (horário reduzido para sabado)
-    minutosFim: 30,    // Sem minutos após as 18:00
+    fim: 18,          // 18:00 (horário reduzido para sabado)
+    minutosFim: 0,    // Sem minutos após as 18:00
     intervaloInicio: 12,   // Início do intervalo de não atendimento (12:00)
-    intervaloFim: 12,     // Fim do intervalo de não atendimento (13:00)
+    intervaloFim: 13,     // Fim do intervalo de não atendimento (13:00)
 };
 
 // Função para verificar se está dentro do horário de atendimento
@@ -255,7 +254,7 @@ client.on("message", async (message) => {
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
       } else {
-			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 12h e de 13h às 18:30h. Sábado de 9h às 12h e de 13h às 18h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
 		}
@@ -348,7 +347,7 @@ if (!clientesAtendidos.has(chatId)) {
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida		
       } else {
-            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 12h e de 13h às 18:30h. Sábado de 9h às 12h e de 13h às 18h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
       
 			const chat = await message.getChat(); // Obtém o chat da mensagem
 			if (chat) await chat.markUnread(); // Marca a mensagem como não lida

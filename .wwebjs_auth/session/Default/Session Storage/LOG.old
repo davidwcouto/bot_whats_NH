@@ -1,2 +1,3 @@
-2025/05/02-11:07:42.403 7444 Creating DB C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Session Storage since it was missing.
-2025/05/02-11:07:42.408 7444 Reusing MANIFEST C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Session Storage/MANIFEST-000001
+2025/05/20-00:15:24.173 2a60 Reusing MANIFEST C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Session Storage/MANIFEST-000001
+2025/05/20-00:15:24.173 2a60 Recovering log #3
+2025/05/20-00:15:24.173 2a60 Reusing old log C:\Users\david\bot_whats_NH\.wwebjs_auth\session\Default\Session Storage/000003.log 
