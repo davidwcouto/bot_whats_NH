@@ -132,7 +132,6 @@ const removerPreposicoes = (str) => {
     if (!item) {
         return "❌ Produto não encontrado.\n\nPara atendimento digite 2️⃣";
 	}
-	
     return `💰 O preço de *${item.Produto}* é *R$ ${item.Preco}* \n\nPara fazer pedido digite 2️⃣`;
 };
 
@@ -248,15 +247,14 @@ client.on("message", async (message) => {
     if (msg === "atendimento" || msg === "pedido") {
         if (estaDentroDoHorario()) {
         atendimentoHumano.add(chatId);
+		await chat.sendSeen();
         await client.sendMessage(chatId, "📞 Você será atendido em breve. Aguarde...");
 		removerAtendimentoHumano(chatId);
         removerClientesAtendidos(chatId);
-			const chat = await message.getChat(); // Obtém o chat da mensagem
-			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
+		await chat.markUnread();
+
       } else {
 			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
-			const chat = await message.getChat(); // Obtém o chat da mensagem
-			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
 		}
         return;
     }
@@ -264,9 +262,7 @@ client.on("message", async (message) => {
     if (msg === "consultar valor") {
         atendimentoHumano.delete(chatId);
         await client.sendMessage(chatId, "Digite o nome do produto para consultar o valor.\nExemplos:\n A12 com aro\n G20 sem aro\n k41s com aro\n iPhone 8 plus\n iPhone 12 incell\n iPhone 12 original\n Redmi 12c com aro\n Redmi Note 8 sem aro");
-        removerClientesAtendidos(chatId);
-			const chat = await message.getChat(); // Obtém o chat da mensagem
-			if (chat) await chat.markUnread(); // Marca a mensagem como não lida		
+        removerClientesAtendidos(chatId);	
 		return;
     }
 
@@ -292,7 +288,7 @@ if (!clientesAtendidos.has(chatId)) {
     const respostaPossivel = buscarPreco(msg);
 
     // Se buscarPreco retornou algo que não é a mensagem de erro padrão
-    if (!respostaPossivel.startsWith("❌ Produto não encontrado") &&
+    if (!respostaPossivel.startsWith("❌ Produto não encontrado") ||
         !respostaPossivel.startsWith("⚠ Nenhum produto")) {
         clientesAtendidos.add(chatId);
         await client.sendMessage(chatId, respostaPossivel);
@@ -308,6 +304,7 @@ if (!clientesAtendidos.has(chatId)) {
         );
         usuariosPendentes.add(chatId);
         clientesAtendidos.add(chatId);
+		await chat.markUnread();
     } catch (error) {
         if (error.message.includes("Could not get the quoted message")) {
             console.warn("Aviso: Não foi possível obter a mensagem citada. Enviando mensagem mesmo assim.");
@@ -326,9 +323,9 @@ if (!clientesAtendidos.has(chatId)) {
     if (msg === "1" || msg === "2") {
       usuariosPendentes.delete(chatId); // Remove da lista após escolher
     } else {
+
       // Laço de repetição continua até que o cliente escolha 1 ou 2
       await client.sendMessage(chatId, "Digite a opção *1️⃣* ou *2️⃣* ");
-	  
 	          // Obter o chat e marcar a mensagem como não lida
        const chat = await message.getChat(); // Obtém o chat da mensagem
        await chat.markUnread(); // Marca a mensagem como não lida
@@ -344,14 +341,11 @@ if (!clientesAtendidos.has(chatId)) {
         await client.sendMessage(chatId, "📞 Você será atendido em breve. Aguarde...");
 		removerAtendimentoHumano(chatId);
         removerClientesAtendidos(chatId);
-			const chat = await message.getChat(); // Obtém o chat da mensagem
-			if (chat) await chat.markUnread(); // Marca a mensagem como não lida		
+			await chat.markUnread();
+		
       } else {
             await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
-      
-			const chat = await message.getChat(); // Obtém o chat da mensagem
-			if (chat) await chat.markUnread(); // Marca a mensagem como não lida
-	   
+
 		}
         return;
     }
@@ -360,15 +354,14 @@ if (!clientesAtendidos.has(chatId)) {
     await client.sendMessage(chatId, "Digite o nome do produto para consultar o valor.\nExemplos:\n A12 com aro\n G20 sem aro\n k41s com aro\n iPhone 8 plus\n iPhone 12 incell\n iPhone 12 original\n Redmi 12c com aro\n Redmi Note 8 sem aro");
 		   // Remove o cliente da lista de atendimento após 1 minuto
 			removerClientesAtendidos(chatId);
-			const chat = await message.getChat(); // Obtém o chat da mensagem
-			if (chat) await chat.markUnread(); // Marca a mensagem como não lida	
         return;
 }		
 
     // Consulta de preço pelo nome do produto
     const respostaPreco = buscarPreco(msg);
     await client.sendMessage(chatId, respostaPreco);
-	await chat.markUnread();
+    await chat.markUnread();
+
 });
 
 client.initialize();
