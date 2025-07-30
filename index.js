@@ -137,8 +137,8 @@ const removerPreposicoes = (str) => {
 
 const horarioAtendimento = {
     inicio: 9,        // 09:00
-    fim: 17,          // 18:00
-    minutosFim: 30,   // Até 18:30
+    fim: 17,          // 17:00
+    minutosFim: 00,   // Até 17:00
     intervaloInicio: 12,   // Início do intervalo de não atendimento (12:00)
     intervaloFim: 12,     // Fim do intervalo de não atendimento (13:00)
 };
@@ -146,8 +146,8 @@ const horarioAtendimento = {
 // Horário de atendimento especial para sabado
 const horarioSabado = {
     inicio: 9,        // 09:00
-    fim: 17,          // 18:00 (horário reduzido para sabado)
-    minutosFim: 30,    // Sem minutos após as 18:00
+    fim: 17,          // 17:00 (horário reduzido para sabado)
+    minutosFim: 00,    // Sem minutos após as 17:00
     intervaloInicio: 12,   // Início do intervalo de não atendimento (12:00)
     intervaloFim: 12,     // Fim do intervalo de não atendimento (13:00)
 };
@@ -166,30 +166,30 @@ const estaDentroDoHorario = () => {
 
     // Se for sabado (dia 6)
     if (diaSemana === 6) {
-        // Horário reduzido no sabado (09:00 - 18:00 com intervalo de almoço)
+        // Horário reduzido no sabado (09:00 - 17:00 com intervalo de almoço)
         if (horaAtual >= horarioSabado.inicio && horaAtual < horarioSabado.intervaloInicio) {
             return true; // Entre 09:00 e 12:00
         }
 
         if (horaAtual >= horarioSabado.intervaloFim && horaAtual < horarioSabado.fim) {
-            return true; // Entre 13:00 e 18:00
+            return true; // Entre 13:00 e 17:00
         }
 
         return false; // Fora do horário de atendimento ou dentro do intervalo de não atendimentoo
     }
 
-    // Horário normal de segunda a sexta (09:00 - 18:00 com intervalo de almoço)
+    // Horário normal de segunda a sexta (09:00 - 17:00 com intervalo de almoço)
     if (horaAtual >= horarioAtendimento.inicio && horaAtual < horarioAtendimento.intervaloInicio) {
         return true; // Entre 09:00 e 12:00
     }
 
     if (horaAtual >= horarioAtendimento.intervaloFim && horaAtual < horarioAtendimento.fim) {
-        return true; // Entre 13:00 e 18:00
+        return true; // Entre 13:00 e 17:00
     }
 
-    // Verifica se a hora está dentro do intervalo de 18:00 até 18:30
+    // Verifica se a hora está dentro do intervalo de 17:00 até 17:00
     if (horaAtual === horarioAtendimento.fim && minutosAtuais <= horarioAtendimento.minutosFim) {
-        return true; // Entre 18:00 e 18:30
+        return true; // Entre 17:00 e 17:00
     }
 
     return false; // Fora do horário de atendimento ou dentro do intervalo de não atendimento
@@ -254,7 +254,7 @@ client.on("message", async (message) => {
 		await chat.markUnread();
 
       } else {
-			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:00h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 		}
         return;
     }
@@ -344,7 +344,7 @@ if (!clientesAtendidos.has(chatId)) {
 			await chat.markUnread();
 		
       } else {
-            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:30h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Segunda a Sabado das 9h às 17:00h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 
 		}
         return;
