@@ -1,0 +1,7 @@
+<<<<<<< HEAD
+2026/05/02-10:42:06.661 5fb0 Creating DB C:\Users\David Couto\Desktop\bot_whats\.wwebjs_auth\session\Default\Site Characteristics Database since it was missing.
+2026/05/02-10:42:06.677 5fb0 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats\.wwebjs_auth\session\Default\Site Characteristics Database/MANIFEST-000001
+=======
+2026/05/04-12:06:12.979 5a84 Creating DB C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Site Characteristics Database since it was missing.
+2026/05/04-12:06:13.005 5a84 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Site Characteristics Database/MANIFEST-000001
+>>>>>>> ee608ff (Atualizando o bot)
