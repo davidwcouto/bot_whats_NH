@@ -372,6 +372,7 @@ client.on("message_revoke_everyone", async (after, before) => {
 
 // Evento para DETECTAR mensagens enviadas pelo próprio usuário e SILENCIAR a conversa
 client.on("message_create", async (message) => {
+	
     // só processa mensagens enviadas pelo bot
     if (!message.fromMe) return;
 
@@ -393,7 +394,7 @@ client.on("message_create", async (message) => {
     // 🔒 só silencia se NÃO for mensagem automática
     if (!ehMensagemDoBot) {
         silencedChats.add(chatId);
-        console.log(`Chat silenciado manualmente: ${phone}`);
+        console.log(`Chat silenciado manualmente: ${chatId}`);
         removerSilencedChats(chatId);
     }
 });
@@ -462,7 +463,7 @@ client.on("message", async (message) => {
         const upload = await cloudinary.uploader.upload(
             `data:${mimetype};base64,${media.data}`,
             {
-                folder: `comprovantes_sapucaia/${dataHoje}`,
+                folder: `comprovantes_nh/${dataHoje}`,
                 public_id: nomeArquivo,
                 resource_type: "auto"
             }
