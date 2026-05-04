@@ -1,7 +1,2 @@
-<<<<<<< HEAD
-2026/05/02-10:42:06.701 508 Creating DB C:\Users\David Couto\Desktop\bot_whats\.wwebjs_auth\session\Default\shared_proto_db since it was missing.
-2026/05/02-10:42:06.706 508 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001
-=======
-2026/05/04-12:06:13.061 5a84 Creating DB C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db since it was missing.
-2026/05/04-12:06:13.066 5a84 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001
->>>>>>> ee608ff (Atualizando o bot)
+2026/05/04-12:24:59.315 2580 Creating DB C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db since it was missing.
+2026/05/04-12:24:59.320 2580 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001

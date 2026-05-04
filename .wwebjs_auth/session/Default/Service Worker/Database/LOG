@@ -1,7 +1,2 @@
-<<<<<<< HEAD
-2026/05/02-10:42:08.031 4f28 Creating DB C:\Users\David Couto\Desktop\bot_whats\.wwebjs_auth\session\Default\Service Worker\Database since it was missing.
-2026/05/02-10:42:08.036 4f28 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats\.wwebjs_auth\session\Default\Service Worker\Database/MANIFEST-000001
-=======
-2026/05/04-12:06:14.645 3194 Creating DB C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Service Worker\Database since it was missing.
-2026/05/04-12:06:14.650 3194 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Service Worker\Database/MANIFEST-000001
->>>>>>> ee608ff (Atualizando o bot)
+2026/05/04-12:25:00.885 381c Creating DB C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Service Worker\Database since it was missing.
+2026/05/04-12:25:00.991 381c Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Service Worker\Database/MANIFEST-000001
