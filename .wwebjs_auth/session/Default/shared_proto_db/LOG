@@ -1,3 +1,2 @@
-2026/05/05-16:54:32.975 13cc Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001
-2026/05/05-16:54:32.976 13cc Recovering log #3
-2026/05/05-16:54:32.977 13cc Reusing old log C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db/000003.log 
+2026/05/07-13:13:51.977 4764 Creating DB C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db since it was missing.
+2026/05/07-13:13:51.983 4764 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001
