@@ -246,8 +246,11 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
     
     for (const numero of allowedContacts) {
         const chatId = numero + "@c.us";
-        await client.sendMessage(chatId, texto);
-    }
+        await client.sendMessage(chatId, texto);   
+		
+		const delay = Math.floor(Math.random() * 4000) + 6000;
+		await new Promise(r => setTimeout(r, delay));
+		}
 
     console.log("✅ Disparo finalizado.");
     return;
