@@ -248,6 +248,8 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
         const chatId = numero + "@c.us";
         await client.sendMessage(chatId, texto);   
 		
+		console.log("✅ Enviado para:", numero);
+		
 		const delay = Math.floor(Math.random() * 4000) + 6000;
 		await new Promise(r => setTimeout(r, delay));
 		}
