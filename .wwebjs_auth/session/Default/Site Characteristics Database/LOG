@@ -1,2 +1,3 @@
-2026/05/07-13:13:51.931 13b4 Creating DB C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Site Characteristics Database since it was missing.
-2026/05/07-13:13:51.946 13b4 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Site Characteristics Database/MANIFEST-000001
+2026/05/13-10:24:31.723 2714 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Site Characteristics Database/MANIFEST-000001
+2026/05/13-10:24:31.726 2714 Recovering log #3
+2026/05/13-10:24:31.727 2714 Reusing old log C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\Site Characteristics Database/000003.log 

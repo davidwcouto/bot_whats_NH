@@ -67,7 +67,7 @@ const client = new Client({
 });
 
 let atendimentoHumano = new Set(); // Armazena usuários em atendimento humano
-let clientesAtendidos = new Set(); // Garante que a mensagem inicial só seja enviada uma vez por cliente
+let clientesAtendidos = new Set(); // Garante que a mensagem inicial só seja enviada uma vez por clientee
 let silencedChats = new Set(); // Lista de conversas silenciadas
 let ultimoProdutoConsultado = new Map(); // Guardar o últiimo produto consultadoo
 
