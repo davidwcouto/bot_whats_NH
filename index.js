@@ -1,6 +1,14 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+process.on('unhandledRejection', err => {
+    console.error('UNHANDLED REJECTION:', err);
+});
+
+process.on('uncaughtException', err => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+});
+
 const db = mysql.createPool({
     host: process.env.MYSQLHOST,
     user: process.env.MYSQLUSER,
@@ -39,11 +47,11 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// --- Carregar contatos autorizados a partir do arquivo de texto ---
+// --- Carregar contatos autorizados a partir do arquivo de textoo ---
 let allowedContacts = [];
 try {
   const contactsData = fs.readFileSync("allowed.txt", "utf8");
-  // Divide o conteúdo em linhas, remove espaços e filtra linhas vaziass
+  // Divide o conteúdo em linhas, remove espaços e filtra linhas vaziasss
   allowedContacts = contactsData
     .split("\n")
     .map(line => line.trim())
@@ -61,13 +69,19 @@ const client = new Client({
 		executablePath:process.env.PUPPETEER_EXECUTABLE_PATH,
 			args:[
 				'--no-sandbox',
-				'--disable-setuid-sandbox'
+				'--disable-setuid-sandbox',
+				'--disable-dev-shm-usage',
+				'--disable-accelerated-2d-canvas',
+				'--disable-gpu',
+				'--no-first-run',
+				'--no-zygote',
+				'--single-process'
 			]
 		}
 });
 
 let atendimentoHumano = new Set(); // Armazena usuários em atendimento humano
-let clientesAtendidos = new Set(); // Garante que a mensagem inicial só seja enviada uma vez por clientee
+let clientesAtendidos = new Set(); // Garante que a mensagem inicial só seja enviada uma vez por cliente
 let silencedChats = new Set(); // Lista de conversas silenciadas
 let ultimoProdutoConsultado = new Map(); // Guardar o últiimo produto consultadoo
 
@@ -173,6 +187,10 @@ const removerPreposicoes = (str) => {
         return "❌ Produto não encontrado.\n\nPara atendimento digite 2️⃣";
 	}
 	ultimoProdutoConsultado.set(chatId, item);
+	
+	setTimeout(() => {
+    ultimoProdutoConsultado.delete(chatId);
+	}, 30 * 60 * 1000);
 
     return `💰 O preço de *${item.Produto}* é *R$ ${item.Preco}* \n\nPara fazer pedido digite 2️⃣\nVisualizar foto do produto digite 3️⃣`;
 };
@@ -246,7 +264,7 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
     
     for (const numero of allowedContacts) {
         const chatId = numero + "@c.us";
-        await client.sendMessage(chatId, texto);   
+        await client.sendMessage(chatId, texto);
 		
 		console.log("✅ Enviado para:", numero);
 		
@@ -283,7 +301,7 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
 
             console.log("✅ Enviado para:", numero);
 
-            const delay = Math.floor(Math.random() * 4000) + 6000;
+            const delay = Math.floor(Math.random() * 4000) + 4000;
 			await new Promise(r => setTimeout(r, delay));
 
         } catch (erro) {
@@ -333,6 +351,18 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
         });
     }	
 }
+
+client.on('disconnected', (reason) => {
+    console.log('❌ Cliente desconectado:', reason);
+});
+
+client.on('auth_failure', msg => {
+    console.log('❌ Falha autenticação:', msg);
+});
+
+client.on('change_state', state => {
+    console.log('🔄 Estado mudou:', state);
+});
 
 client.on("message_revoke_everyone", async (after, before) => {
 
@@ -408,6 +438,8 @@ client.on("message_create", async (message) => {
 
 // Evento de mensagem recebida
 client.on("message", async (message) => {
+	
+	try {
 	
 	if (message.from === "status@broadcast" || message.from.endsWith("@g.us")) {
 		return;
@@ -505,7 +537,7 @@ Caso precise de atendimento basta responder esta mensagem.
 Atenciosamente
 *Coutech Cell*`;
     await client.sendMessage(chatId, "🚀 Iniciando envio para todos os contatos...");
-    enviarMensagemEmMassa(mensagem);
+    await enviarMensagemEmMassa(mensagem);
     return;
 }
 
@@ -646,10 +678,40 @@ if (respostaPreco.startsWith("❌ Produto não encontrado")) {
 
 await client.sendMessage(chatId, respostaPreco);
 await chat.markUnread();
+
+    } catch (error) {
+
+        console.error("ERRO GERAL MESSAGE:", error);
+
+    }
 										
 });
 
 client.initialize();
+
+setInterval(async () => {
+
+    try {
+
+        const state = await client.getState();
+
+        console.log("📡 Estado atual:", state);
+
+        if (state !== "CONNECTED") {
+
+            console.log("⚠️ Cliente desconectado, reiniciando...");
+            process.exit(1);
+
+        }
+
+    } catch (err) {
+
+        console.log("Erro ao verificar estado:", err);
+        process.exit(1);
+
+    }
+
+}, 60000);
 
 app.use(express.urlencoded({ extended: true }));
 app.get("/", (req,res)=>{
