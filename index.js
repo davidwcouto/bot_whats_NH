@@ -29,6 +29,7 @@ const xlsx = require("xlsx");
 const puppeteer = require('puppeteer');
 const app = express();
 const port = process.env.PORT || 3000;
+const inicioBot = Math.floor(Date.now() / 1000);	
 const { DateTime } = require("luxon");
 const Tesseract = require("tesseract.js");
 const multer = require("multer");
@@ -51,7 +52,7 @@ cloudinary.config({
 let allowedContacts = [];
 try {
   const contactsData = fs.readFileSync("allowed.txt", "utf8");
-  // Divide o conteúdo em linhas, remove espaços e filtra linhas vaziasss
+  // Divide o conteúdo em linhas, remove espaços e filtra linhas vaziass
   allowedContacts = contactsData
     .split("\n")
     .map(line => line.trim())
@@ -69,13 +70,7 @@ const client = new Client({
 		executablePath:process.env.PUPPETEER_EXECUTABLE_PATH,
 			args:[
 				'--no-sandbox',
-				'--disable-setuid-sandbox',
-				'--disable-dev-shm-usage',
-				'--disable-accelerated-2d-canvas',
-				'--disable-gpu',
-				'--no-first-run',
-				'--no-zygote',
-				'--single-process'
+				'--disable-setuid-sandbox'
 			]
 		}
 });
@@ -440,7 +435,9 @@ client.on("message_create", async (message) => {
 client.on("message", async (message) => {
 	
 	try {
-	
+		if (message.fromMe) return;
+		if (message.timestamp < inicioBot - 10) return;
+
 	if (message.from === "status@broadcast" || message.from.endsWith("@g.us")) {
 		return;
 	}
