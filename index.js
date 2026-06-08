@@ -831,7 +831,7 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`Server is running on http://0.0.0.0:${port}`);
 });
 
-// Reinicia o bot automaticamente a cada 24 horas
+// Reinicia o bot automaticamente a cada 24 horass
 // setTimeout(() => {
 //   console.log("♻️ Reiniciando o bot para limpar memória...");
 //   process.exit(0);
