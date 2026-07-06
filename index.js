@@ -65,16 +65,13 @@ try {
 // Criando o cliente do WhatsApp Web
 const client = new Client({
 	authStrategy: new LocalAuth(),
-		puppeteer: {
-		  headless: true,
-		  args: [
-			"--no-sandbox",
-			"--disable-setuid-sandbox",
-			"--disable-dev-shm-usage",
-			"--disable-gpu",
-			"--no-first-run",
-			"--no-default-browser-check"
-		  ]
+		puppeteer:{
+		headless:true,
+		executablePath: "/usr/bin/google-chrome-stable",
+			args:[
+				'--no-sandbox',
+				'--disable-setuid-sandbox'
+			]
 		}
 });
 
