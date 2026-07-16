@@ -263,7 +263,7 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
 		
 		console.log("✅ Enviado para:", numero);
 		
-		const delay = Math.floor(Math.random() * 4000) + 6000;
+		const delay = Math.floor(Math.random() * 3000) + 4000;
 		await new Promise(r => setTimeout(r, delay));
 		}
 
