@@ -67,7 +67,7 @@ const client = new Client({
 	authStrategy: new LocalAuth(),
 		puppeteer:{
 		headless:true,
-		executablePath: "/usr/bin/google-chrome-stable",
+		    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
 			args:[
 				'--no-sandbox',
 				'--disable-setuid-sandbox'
@@ -431,6 +431,35 @@ client.on("message_create", async (message) => {
     }
 });
 
+	// Função pra ajeitar o downloadMedia() até sair atualização do whatsapp-web.js
+	function corrigirIdMensagem(message) {
+		if (!message?.id) {
+			return false;
+		}
+
+		if (message.id._serialized) {
+			return true;
+		}
+
+		if (message.id.$1) {
+			message.id._serialized = message.id.$1;
+			return true;
+		}
+
+		if (
+			message.id.fromMe !== undefined &&
+			message.id.remote &&
+			message.id.id
+		) {
+			message.id._serialized =
+				`${message.id.fromMe}_${message.id.remote}_${message.id.id}`;
+
+			return true;
+		}
+
+		return false;
+	}
+
 // Evento de mensagem recebida
 client.on("message", async (message) => {
 	
@@ -443,74 +472,162 @@ client.on("message", async (message) => {
 	}
 	
 	const chatId = message.from;
-	const contact = await message.getContact();
 	const msg = message.body.toLowerCase().trim();
-	let phone = contact.number;
-  
+
+	let phone;
+
+	if (chatId.endsWith("@lid")) {
+		const resultado = await client.getContactLidAndPhone([chatId]);
+
+		if (resultado && resultado.length > 0 && resultado[0].pn) {
+			phone = String(resultado[0].pn).replace("@c.us", "");
+		}
+	} else {
+		phone = chatId.replace("@c.us", "");
+	}
+	
+	// Bloco que salva o comprovante
 	if (message.hasMedia) {
 		try {
+			let media;
 
-		const media = await message.downloadMedia();
-		
-        if (!media) {
-            console.log("Erro ao baixar mídia");
-            return;
-        }
-		
-        const mimetype = media.mimetype;
-		
-		        // ✅ permitir apenass PDF e JPEG
-        const tiposPermitidos = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
-		
-        if (!tiposPermitidos.includes(mimetype)) {
-            console.log("Arquivo ignorado:", mimetype);
-            return; // ignora outros tipos
-        }	
-		
-		let ehComprovante = true;
-		
-        if (mimetype.startsWith("image/")) {
-			
-			if (media.data.length > 3000000) return; // proteção
-			
-            const resultado = await Tesseract.recognize(`data:${mimetype};base64,${media.data}`,'por');		
-			
-			const texto = resultado.data.text.toLowerCase();
+			try {
+				const idCorrigido = corrigirIdMensagem(message);
 
-			console.log("Texto detectado:", texto);
-		
-			const palavrasChave = ["pix","comprovante","pagamento","valor","r$","transferencia","enviado","recebido"];
-			
-            ehComprovante = palavrasChave.some(p =>texto.includes(p));
-		
-			if (!ehComprovante) {
-				console.log("Imagem ignorada (não é comprovante)");
+				if (!idCorrigido) {
+					console.error(
+						"❌ Não foi possível obter o ID correto da mensagem."
+					);
+					console.dir(message.id, { depth: null });
+					return;
+				}
+
+				media = await message.downloadMedia();
+			} catch (erroDownload) {
+				console.error("❌ ERRO NO DOWNLOAD DA MÍDIA");
+				console.error("Mensagem:", erroDownload?.message);
+				console.error("Nome:", erroDownload?.name);
+				console.error("Stack:", erroDownload?.stack);
+				console.dir(erroDownload, { depth: null });
 				return;
 			}
+
+			if (!media) {
+				console.log("❌ downloadMedia retornou null ou undefined");
+				return;
+			}
+
+			if (!media.data || !media.mimetype) {
+				console.log("❌ Mídia sem conteúdo ou sem mimetype");
+				return;
+			}
+
+			const mimetype = String(media.mimetype)
+				.split(";")[0]
+				.toLowerCase()
+				.trim();
+
+			const tiposPermitidos = [
+				"application/pdf",
+				"image/jpeg",
+				"image/jpg",
+				"image/png"
+			];
+
+			if (!tiposPermitidos.includes(mimetype)) {
+				console.log("Arquivo ignorado:", mimetype);
+				return;
+			}
+
+			const tamanhoBytes = Buffer.byteLength(media.data, "base64");
+
+			let ehComprovante = true;
+
+			if (mimetype.startsWith("image/")) {
+				try {
+
+					const resultado = await Tesseract.recognize(
+						`data:${mimetype};base64,${media.data}`,
+						"por"
+					);
+
+					const texto = String(resultado?.data?.text || "")
+						.toLowerCase();
+
+					const palavrasChave = [
+						"pix",
+						"comprovante",
+						"pagamento",
+						"valor",
+						"r$",
+						"transferencia",
+						"transferência",
+						"enviado",
+						"recebido"
+					];
+
+					ehComprovante = palavrasChave.some(palavra =>
+						texto.includes(palavra)
+					);
+
+					if (!ehComprovante) {
+						console.log("Imagem ignorada: não parece ser comprovante");
+						return;
+					}
+
+				} catch (erroOCR) {
+					console.error("❌ ERRO NO OCR");
+					console.error("Mensagem:", erroOCR?.message);
+					console.error("Stack:", erroOCR?.stack);
+					console.dir(erroOCR, { depth: null });
+					return;
+				}
+			}
+
+			const agoraBrasil = DateTime.now()
+				.setZone("America/Sao_Paulo");
+
+			const agora = agoraBrasil.toFormat("dd-MM-yyyy_HH-mm-ss-SSS");
+			const dataHoje = agoraBrasil.toFormat("yyyy-MM-dd");
+			const nomeArquivo = `comp_${agora}_${phone}`;
+
+			try {
+				console.log("4️⃣ Enviando para o Cloudinary...");
+
+				const resultadoCloudinary = await cloudinary.uploader.upload(
+					`data:${mimetype};base64,${media.data}`,
+					{
+						folder: `comprovantes_nh/${dataHoje}`,
+						public_id: nomeArquivo,
+						resource_type: "auto",
+						overwrite: false
+					}
+				);
+
+				console.log(
+					"✅ Comprovante enviado:",
+					resultadoCloudinary.secure_url
+				);
+
+			} catch (erroCloudinary) {
+				console.error("❌ ERRO NO CLOUDINARY");
+				console.error("Mensagem:", erroCloudinary?.message);
+				console.error("Código HTTP:", erroCloudinary?.http_code);
+				console.error("Stack:", erroCloudinary?.stack);
+				console.dir(erroCloudinary, { depth: null });
+				return;
+			}
+
+		} catch (erro) {
+			console.error("❌ ERRO GERAL NO COMPROVANTE");
+			console.error("Mensagem:", erro?.message);
+			console.error("Nome:", erro?.name);
+			console.error("Stack:", erro?.stack);
+			console.dir(erro, { depth: null });
 		}
-		
-		const agora = DateTime.now().setZone("America/Sao_Paulo").toFormat("dd-MM-yyyy_HH-mm-ss-SSS");
-        const ext = mimetype.split("/")[1].split(";")[0];
-        const nomeArquivo = `comp_${agora}_${phone}.${ext}`;
-		const dataHoje = DateTime.now().setZone("America/Sao_Paulo").toFormat("yyyy-MM-dd");
-		
-		        // 🔥 upload para Cloudinary
-        const upload = await cloudinary.uploader.upload(
-            `data:${mimetype};base64,${media.data}`,
-            {
-                folder: `comprovantes_nh/${dataHoje}`,
-                public_id: nomeArquivo,
-                resource_type: "auto"
-            }
-        );
 
-        console.log("Comprovante enviado:", upload.secure_url);
-
-    } catch (erro) {
-        console.error("Erro ao salvar comprovante:", erro.message);
-    }
-    return;
-}
+		return;
+	}
   
       // Se o chat estiver silenciado, ignorar a mensagem
 	if (silencedChats.has(chatId) && !message.hasMedia) {
