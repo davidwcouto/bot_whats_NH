@@ -1,11 +1,3 @@
-2026/07/30-13:28:13.327 2b3c Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/07/30-13:28:13.328 2b3c Recovering log #1186
-2026/07/30-13:28:13.341 2b3c Reusing old log C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/001186.log 
-2026/07/30-13:28:14.058 3e60 Compacting 1@1 + 2@2 files
-2026/07/30-13:28:14.129 3e60 Generated table #1198@1: 53016 keys, 2233692 bytes
-2026/07/30-13:28:14.193 3e60 Generated table #1199@1: 93637 keys, 2182154 bytes
-2026/07/30-13:28:14.193 3e60 Compacted 1@1 + 2@2 files => 4415846 bytes
-2026/07/30-13:28:14.194 3e60 compacted to: files[ 0 0 37 0 0 0 0 ]
-2026/07/30-13:28:14.195 3e60 Delete type=2 #1171
-2026/07/30-13:28:14.195 3e60 Delete type=2 #1172
-2026/07/30-13:28:14.195 3e60 Delete type=2 #1188
+2026/07/30-13:55:26.404 3274 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/30-13:55:26.405 3274 Recovering log #60
+2026/07/30-13:55:26.411 3274 Reusing old log C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000060.log 
