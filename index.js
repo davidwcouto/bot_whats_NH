@@ -948,7 +948,7 @@ client.on("message", async (message) => {
 		phone = chatId.replace("@c.us", "");
 	}
 	
-	// Bloco que salva o comprovante
+	// Bloco que salva o comprovantee
 	if (message.hasMedia) {
 		try {
 			let media;
