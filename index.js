@@ -804,7 +804,7 @@ function montarMensagemPedido(dados) {
 
 		mensagem +=
 		  `• ${produto.nome}\n` +
-		  `  Qtd: ${produto.quantidade}\n`;
+		  `  Qtd: ${produto.quantidade} |`;
 
 		if (produto.desconto && produto.desconto !== '0,00') {
 
