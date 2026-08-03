@@ -792,48 +792,70 @@ function mensagemPainel(texto, tipo = 'sucesso') {
 
 function montarMensagemPedido(dados) {
   let mensagem =
-	`Pedido nº ${dados.pedido}\n` +
+    `Pedido nº ${dados.pedido}\n` +
     `Cliente: ${dados.cliente || 'cliente'}\n` +
-    `Endereço: ${dados.endereco}\n` +
-	`Cidade: ${dados.cidade}\n`;
+    `Endereço: ${dados.endereco || 'Não informado'}\n` +
+    `Cidade: ${dados.cidade || 'Não informada'}\n\n`;
 
   if (dados.produtos?.length) {
-    mensagem += `*Produtos:*\n`;
+    mensagem += `*Produtos:*\n\n`;
 
     for (const produto of dados.produtos) {
       mensagem +=
         `• ${produto.nome}\n` +
-        `  Qtd: ${produto.quantidade} | Valor: R$ ${produto.valorTotal}\n`;
-    }
+        `  Qtd: ${produto.quantidade}\n`;
 
-    mensagem += '\n';
+      if (produto.valorUnitario) {
+        mensagem +=
+          `  Valor unitário: R$ ${produto.valorUnitario}\n`;
+      }
+
+      if (
+        produto.desconto &&
+        produto.desconto !== '0,00'
+      ) {
+        mensagem +=
+          `  Desconto no item: R$ ${produto.desconto}\n`;
+      }
+
+      mensagem +=
+        `  Valor final: R$ ${produto.valorTotal}\n\n`;
+    }
   }
 
   if (dados.valorProdutos) {
-    mensagem += `Valor dos produtos: R$ ${dados.valorProdutos}\n`;
+    mensagem +=
+      `Valor dos produtos: R$ ${dados.valorProdutos}\n`;
   }
 
-  if (dados.desconto && dados.desconto !== '0,00') {
-    mensagem += `Desconto: R$ ${dados.desconto}\n`;
+  if (
+    dados.desconto &&
+    dados.desconto !== '0,00'
+  ) {
+    mensagem +=
+      `Desconto geral: R$ ${dados.desconto}\n`;
   }
 
-  mensagem += `*Total: R$ ${dados.total || '0,00'}*\n`;
+  mensagem +=
+    `*Total: R$ ${dados.total || '0,00'}*\n`;
 
   if (dados.formaPagamento) {
-    mensagem += `Forma de pagamento: ${dados.formaPagamento}\n`;
+    mensagem +=
+      `Forma de pagamento: ${dados.formaPagamento}\n`;
   }
 
   if (
     dados.coleta &&
     dados.coleta.toLowerCase() !== 'sem' &&
     dados.coleta.toLowerCase() !== 'sem coleta' &&
-	dados.coleta.toLowerCase() !== 'sem coletas'
+    dados.coleta.toLowerCase() !== 'sem coletas'
   ) {
-    mensagem += `Coletar: ${dados.coleta}\n`;
+    mensagem +=
+      `Coletar: ${dados.coleta}\n`;
   }
 
   mensagem +=
-	`\nAtendente: ${dados.atendente || 'Não informado'}\n` +
+    `\nAtendente: ${dados.atendente || 'Não informado'}\n` +
     `A Coutech Cell agradece a preferência!`;
 
   return mensagem;
