@@ -797,29 +797,27 @@ function montarMensagemPedido(dados) {
     `Endereço: ${dados.endereco || 'Não informado'}\n` +
     `Cidade: ${dados.cidade || 'Não informada'}\n`;
 
-  if (dados.produtos?.length) {
-    mensagem += `*Produtos:*\n`;
-	
-	if (produto.desconto) {
-    for (const produto of dados.produtos) {
-      mensagem +=
-        `• ${produto.nome}\n` +
-        `  Qtd: ${produto.quantidade}\n`;
-          `  Valor unitário: R$ ${produto.valorUnitario}\n`;
-          `  Desconto no item: R$ ${produto.desconto}\n`;
-      }
-      mensagem +=
-        `  Valor: R$ ${produto.valorTotal}\n\n`;
-    } else {
-	    for (const produto of dados.produtos) {
-      mensagem +=
-        `• ${produto.nome}\n` +
-        `  Qtd: ${produto.quantidade}\n`;
-      }
-      mensagem +=
-        `  Valor: R$ ${produto.valorTotal}\n\n`;
-    }
-  }
+	if (dados.produtos?.length) {
+	  mensagem += `*Produtos:*\n`;
+
+	  for (const produto of dados.produtos) {
+
+		mensagem +=
+		  `• ${produto.nome}\n` +
+		  `  Qtd: ${produto.quantidade}\n`;
+
+		if (produto.desconto && produto.desconto !== '0,00') {
+
+		  mensagem +=
+			`  Valor unitário: R$ ${produto.valorUnitario}\n` +
+			`  Desconto no item: R$ ${produto.desconto}\n`;
+
+		}
+
+		mensagem +=
+		  `  Valor: R$ ${produto.valorTotal}\n\n`;
+	  }
+	}
 
   if (dados.valorProdutos) {
     mensagem +=
@@ -948,7 +946,7 @@ client.on("message", async (message) => {
 		phone = chatId.replace("@c.us", "");
 	}
 	
-	// Bloco que salva o comprovantee
+	// Bloco que salva o comprovante
 	if (message.hasMedia) {
 		try {
 			let media;
