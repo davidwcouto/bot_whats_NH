@@ -795,31 +795,29 @@ function montarMensagemPedido(dados) {
     `Pedido nº ${dados.pedido}\n` +
     `Cliente: ${dados.cliente || 'cliente'}\n` +
     `Endereço: ${dados.endereco || 'Não informado'}\n` +
-    `Cidade: ${dados.cidade || 'Não informada'}\n\n`;
+    `Cidade: ${dados.cidade || 'Não informada'}\n`;
 
   if (dados.produtos?.length) {
-    mensagem += `*Produtos:*\n\n`;
-
+    mensagem += `*Produtos:*\n`;
+	
+	if (produto.desconto) {
     for (const produto of dados.produtos) {
       mensagem +=
         `• ${produto.nome}\n` +
         `  Qtd: ${produto.quantidade}\n`;
-
-      if (produto.desconto) {
-        mensagem +=
           `  Valor unitário: R$ ${produto.valorUnitario}\n`;
-      }
-
-      if (
-        produto.desconto &&
-        produto.desconto !== '0,00'
-      ) {
-        mensagem +=
           `  Desconto no item: R$ ${produto.desconto}\n`;
       }
-
       mensagem +=
-        `  Valor final: R$ ${produto.valorTotal}\n\n`;
+        `  Valor: R$ ${produto.valorTotal}\n\n`;
+    } else {
+	    for (const produto of dados.produtos) {
+      mensagem +=
+        `• ${produto.nome}\n` +
+        `  Qtd: ${produto.quantidade}\n`;
+      }
+      mensagem +=
+        `  Valor: R$ ${produto.valorTotal}\n\n`;
     }
   }
 
