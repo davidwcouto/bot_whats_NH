@@ -906,7 +906,6 @@ client.on("message", async (message) => {
 	const msg = message.body.toLowerCase().trim();
 	
 	if (!msg && !message.hasMedia) {
-		console.log("⚠️ Mensagem vazia ignorada.");
 		return;
 	}
 
