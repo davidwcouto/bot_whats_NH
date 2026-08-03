@@ -805,7 +805,7 @@ function montarMensagemPedido(dados) {
         `• ${produto.nome}\n` +
         `  Qtd: ${produto.quantidade}\n`;
 
-      if (produto.valorUnitario) {
+      if (produto.desconto) {
         mensagem +=
           `  Valor unitário: R$ ${produto.valorUnitario}\n`;
       }
