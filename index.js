@@ -210,6 +210,7 @@ function prepararPesquisa(texto) {
     pesquisa = pesquisa.replace(/\bdisplay\b/g, "tela");
     pesquisa = pesquisa.replace(/\bfrontal\b/g, "tela");
     pesquisa = pesquisa.replace(/\bcombo\b/g, "tela");
+	pesquisa = pesquisa.replace(/\bnacional\b/g, "nac");
 
     // Placa de carga
     pesquisa = pesquisa.replace(/\bdock\b/g, "placa de carga");
