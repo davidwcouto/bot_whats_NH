@@ -363,7 +363,7 @@ Digite 2️⃣ para atendimento.`;
         }, 30 * 60 * 1000);
 
         let mensagem =
-            `🔎 Encontrei essas opções para ` +
+            `🔎 No estoque temos essas opções para ` +
             `*${produto.toUpperCase()}*:\n\n`;
 
         encontradosLimitados.forEach((item, index) => {
@@ -802,14 +802,13 @@ function montarMensagemPedido(dados) {
   let mensagem =
     `Pedido nº ${dados.pedido}\n` +
     `Cliente: ${dados.cliente || 'cliente'}\n` +
-    `Endereço: ${dados.endereco || 'Não informado'}\n` +
-    `Cidade: ${dados.cidade || 'Não informada'}\n`;
+    `Endereço: ${dados.endereco}\n` +
+	`Cidade: ${dados.cidade}\n`;
 
 	if (dados.produtos?.length) {
-	  mensagem += `*Produtos:*\n`;
+		mensagem += `*Produtos:*\n`;
 
-	  for (const produto of dados.produtos) {
-
+	for (const produto of dados.produtos) {
 		mensagem +=
 		  `• ${produto.nome}\n` +
 		  `  Qtd: ${produto.quantidade} |`;
