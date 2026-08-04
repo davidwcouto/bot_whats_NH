@@ -63,7 +63,7 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// --- Carregar contatos autorizados a partir do arquivo de textoo --
+// --- Carregar contatos autorizados a partir do arquivo de textoo ---
 let allowedContacts = [];
 try {
   const contactsData = fs.readFileSync("allowed.txt", "utf8");
