@@ -197,6 +197,14 @@ function formatarPreco(valor) {
 
 function prepararPesquisa(texto) {
     let pesquisa = normalizarTexto(texto);
+	
+	// Remove marcas que podem não estar no nome cadastrado
+	pesquisa = pesquisa
+	  .replace(/\bsamsung\b/g, '')
+	  .replace(/\bmotorola\b/g, '')
+	  .replace(/\bapple\b/g, '')
+	  .replace(/\s+/g, ' ')
+	  .trim();
 
     // Tela
     pesquisa = pesquisa.replace(/\bdisplay\b/g, "tela");
