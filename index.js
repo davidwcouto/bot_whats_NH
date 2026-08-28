@@ -243,6 +243,7 @@ function pesquisaValida(pesquisa) {
         "bateria",
         "placa de carga",
         "flex",
+		"tampa",
 		"conector"
     ];
 
