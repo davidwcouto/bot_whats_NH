@@ -5823,8 +5823,8 @@ function prepararColunaColeta() {
 // ======================================================
 
 const telefonesMotoboys = new Map([
-    ['Marcelo', '555193480713'],
-    ['Wellington', '555189110829']
+    ['marcelo', '555193480713'],
+    ['wellington', '555189110829']
 ]);
 
 const enviosRotasEmAndamento = new Set();
