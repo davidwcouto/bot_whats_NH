@@ -35,6 +35,7 @@ const db = mysql.createPool({
 });
 
 const fs = require("fs");
+const cryptoEntregas = require('crypto');
 const axios = require("axios");
 const cloudinary = require("cloudinary").v2;
 const path = require("path");
