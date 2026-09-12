@@ -435,7 +435,7 @@ const horarioAtendimento = {
 // Horário de atendimento especial para sabado
 const horarioSabado = {
     inicio: 9,        // 09:00
-    fim: 17,          // 18:00 (horário reduzido para sabado)
+    fim: 14,          // 18:00 (horário reduzido para sabado)
     minutosFim: 00,    // Sem minutos após as 18:00
     intervaloInicio: 12,   // Início do intervalo de não atendimentoo
     intervaloFim: 12,     // Fim do intervalo de não atendimento
@@ -1169,7 +1169,7 @@ const caminhoImagem = `./fotos/${produto.Imagem}`;
         removerClientesAtendidos(chatId);
 
       } else {
-			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 18h. Sábado de 9h às 17h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 18h. Sábado de 9h às 14h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 		}
         return;
     }
@@ -1242,7 +1242,7 @@ if (!clientesAtendidos.has(chatId)) {
         removerClientesAtendidos(chatId);
 		
       } else {
-            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 18h. Sábado de 9h às 17h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 18h. Sábado de 9h às 14h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 		}
         return;
     }
