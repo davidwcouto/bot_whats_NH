@@ -965,6 +965,62 @@ client.on("message", async (message) => {
 		phone = chatId.replace("@c.us", "");
 	}
 	
+	// ==========================================
+	// SALVAR LINK DE COMPROVANTE INFINITEPAY
+	// ==========================================
+
+	if (
+		!message.hasMedia &&
+		msg.includes("recibo.infinitepay.io/statements/")
+	) {
+		try {
+
+			const matchLink = message.body.match(
+				/https?:\/\/recibo\.infinitepay\.io\/statements\/[^\s]+/i
+			);
+
+			if (!matchLink) {
+				console.log("⚠️ Link InfinitePay não pôde ser extraído.");
+				return;
+			}
+
+			const linkInfinitePay = matchLink[0];
+
+			console.log("🔗 Comprovante InfinitePay recebido:");
+			console.log(linkInfinitePay);
+
+			await db.execute(
+				`
+				INSERT INTO comprovantes_pix_links
+				(
+					url,
+					telefone,
+					processado
+				)
+				VALUES (?, ?, 0)
+				`,
+				[
+					linkInfinitePay,
+					phone
+				]
+			);
+
+			console.log(
+				"✅ Link InfinitePay salvo no banco para conferência."
+			);
+
+		} catch (erro) {
+
+			console.error(
+				"❌ Erro ao salvar link InfinitePay:",
+				erro
+			);
+
+		}
+
+		return;
+	}
+	
 	// Bloco que salva o comprovante
 	if (message.hasMedia) {
 		try {
@@ -6385,6 +6441,104 @@ function distribuirPagamentoGrupo(entregas, pix, dinheiro) {
         };
     });
 }
+
+// ======================================================
+// API - COMPROVANTES INFINITEPAY PENDENTES
+// ======================================================
+
+app.get('/api/comprovantes-infinitepay/pendentes', async (req, res) => {
+	try {
+
+		const [links] = await db.execute(`
+			SELECT
+				id,
+				url,
+				telefone,
+				data_recebimento
+			FROM comprovantes_pix_links
+			WHERE processado = 0
+			ORDER BY id ASC
+		`);
+
+		res.json({
+			sucesso: true,
+			total: links.length,
+			links: links
+		});
+
+	} catch (erro) {
+
+		console.error(
+			'❌ Erro ao buscar comprovantes InfinitePay:',
+			erro
+		);
+
+		res.status(500).json({
+			sucesso: false,
+			erro: 'Erro ao buscar comprovantes'
+		});
+	}
+});
+
+
+// ======================================================
+// API - MARCAR COMPROVANTE INFINITEPAY COMO PROCESSADO
+// ======================================================
+
+app.post('/api/comprovantes-infinitepay/:id/processado', async (req, res) => {
+	try {
+
+		const id = Number(req.params.id);
+
+		const {
+			status,
+			pagador,
+			valor
+		} = req.body;
+
+		if (!id) {
+			return res.status(400).json({
+				sucesso: false,
+				erro: 'ID inválido'
+			});
+		}
+
+		await db.execute(
+			`
+			UPDATE comprovantes_pix_links
+			SET
+				processado = 1,
+				status = ?,
+				pagador = ?,
+				valor = ?,
+				processado_em = NOW()
+			WHERE id = ?
+			`,
+			[
+				status || null,
+				pagador || null,
+				valor ?? null,
+				id
+			]
+		);
+
+		res.json({
+			sucesso: true
+		});
+
+	} catch (erro) {
+
+		console.error(
+			'❌ Erro ao atualizar comprovante InfinitePay:',
+			erro
+		);
+
+		res.status(500).json({
+			sucesso: false,
+			erro: 'Erro ao atualizar comprovante'
+		});
+	}
+});
 
 app.get("/health", (req, res) => {
     res.status(200).send("OK");
