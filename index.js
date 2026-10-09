@@ -373,7 +373,7 @@ Digite 2️⃣ para atendimento.`;
         const encontradosLimitados = encontrados.slice(0, 15);
 
         /*
-         * Guarda o primeiro resultado para manter compatibilidade
+         * Guarda o primeiro resultado para manter compatibilidadee
          * com a opção 3 do seu bot.
          */
         ultimoProdutoConsultado.set(chatId, {
