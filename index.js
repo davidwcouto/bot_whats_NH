@@ -6486,8 +6486,7 @@ app.get(
 									<th>Pedido</th>
 									<th>Cliente</th>
 									<th>Valor</th>
-									<th>Dinheiro para abater saldo</th>
-									<th>Coletar</th>
+									<th>Pagamento</th>
 									<th>Ação</th>
 								</tr>
 							</thead>
@@ -6495,7 +6494,7 @@ app.get(
 							<tbody>
 								${linhasPedidosConferencia || `
 									<tr>
-										<td colspan="8">
+										<td colspan="7">
 											Nenhuma entrega nesta data.
 										</td>
 									</tr>
