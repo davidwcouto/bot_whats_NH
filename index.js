@@ -291,19 +291,6 @@ Digite 2️⃣ para atendimento.`;
     }
 
     try {
-		console.log("🔍 Diagnóstico GestãoClick NH:", {
-			accessConfigurado:
-				!!process.env.GESTAOCLICK_ACCESS_TOKEN,
-			secretConfigurado:
-				!!process.env.GESTAOCLICK_SECRET_ACCESS_TOKEN,
-			accessTemEspacos:
-				process.env.GESTAOCLICK_ACCESS_TOKEN !==
-				process.env.GESTAOCLICK_ACCESS_TOKEN?.trim(),
-			secretTemEspacos:
-				process.env.GESTAOCLICK_SECRET_ACCESS_TOKEN !==
-				process.env.GESTAOCLICK_SECRET_ACCESS_TOKEN?.trim(),
-			loja: process.env.GESTAOCLICK_LOJA_ID
-		});
         const resposta = await axios.get(
             "https://api.gestaoclick.com/produtos",
             {
