@@ -291,6 +291,19 @@ Digite 2️⃣ para atendimento.`;
     }
 
     try {
+		console.log("🔍 Diagnóstico GestãoClick NH:", {
+			accessConfigurado:
+				!!process.env.GESTAOCLICK_ACCESS_TOKEN,
+			secretConfigurado:
+				!!process.env.GESTAOCLICK_SECRET_ACCESS_TOKEN,
+			accessTemEspacos:
+				process.env.GESTAOCLICK_ACCESS_TOKEN !==
+				process.env.GESTAOCLICK_ACCESS_TOKEN?.trim(),
+			secretTemEspacos:
+				process.env.GESTAOCLICK_SECRET_ACCESS_TOKEN !==
+				process.env.GESTAOCLICK_SECRET_ACCESS_TOKEN?.trim(),
+			loja: process.env.GESTAOCLICK_LOJA_ID
+		});
         const resposta = await axios.get(
             "https://api.gestaoclick.com/produtos",
             {
@@ -534,8 +547,12 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
 			await new Promise(r => setTimeout(r, delay));
 
         } catch (erro) {
-            console.log("❌ Erro ao enviar para:", numero);
-        }
+			console.error(
+				'❌ Erro ao enviar para:',
+				numero,
+				erro?.stack || erro?.message || erro
+			);
+		}
     }}
 	
 	if (path.extname(caminhoImagem).toLowerCase() === ".mp4" || path.extname(caminhoImagem).toLowerCase() === ".mov") {
@@ -567,8 +584,12 @@ async function enviarMensagemEmMassa(texto, caminhoImagem) {
 			await new Promise(r => setTimeout(r, delay));
 
         } catch (erro) {
-            console.log("❌ Erro ao enviar para:", numero);
-        }
+			console.error(
+				'❌ Erro ao enviar para:',
+				numero,
+				erro?.stack || erro?.message || erro
+			);
+		}
     }}
 
     console.log("✅ Disparo finalizado.");
@@ -3752,6 +3773,639 @@ function paginaEntregas(titulo, conteudo) {
 // PAINEL DA LOJA
 // ======================================================
 
+// =====================================================
+// INTEGRAÇÃO ENTREGAS → GESTÃOCLICK
+// =====================================================
+
+function gcCentavos(valor) {
+    const numero = Number(valor);
+
+    if (!Number.isFinite(numero) || numero < 0) {
+        throw new Error('Valor financeiro inválido.');
+    }
+
+    return Math.round(numero * 100);
+}
+
+function gcNome(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function gcConfiguracao() {
+    const nomes = [
+        'GESTAOCLICK_ACCESS_TOKEN',
+        'GESTAOCLICK_SECRET_ACCESS_TOKEN',
+        'GESTAOCLICK_LOJA_ID',
+        'GESTAOCLICK_FORMA_DINHEIRO_ID',
+        'GESTAOCLICK_FORMA_PIX_ID',
+        'GESTAOCLICK_CONTA_BANCARIA_ID'
+    ];
+
+    const configuracao = {};
+
+    for (const nome of nomes) {
+        const valor = String(process.env[nome] || '').trim();
+
+        if (!valor || /[\x00-\x1F\x7F]/.test(valor)) {
+            throw new Error(`Verifique a variável ${nome} no Railway.`);
+        }
+
+        configuracao[nome] = valor;
+    }
+
+    return configuracao;
+}
+
+// Uma requisição por vez, com intervalo entre chamadas.
+let gcFila = Promise.resolve();
+
+function gcApi(metodo, caminho, parametros = {}, corpo) {
+    const executar = async () => {
+        try {
+            const config = gcConfiguracao();
+
+            const resposta = await require('axios').request({
+                method: metodo,
+                baseURL: 'https://api.gestaoclick.com/api',
+                url: caminho,
+                params: parametros,
+                data: corpo,
+                timeout: 30000,
+                maxRedirects: 0,
+                headers: {
+                    'access-token': config.GESTAOCLICK_ACCESS_TOKEN,
+                    'secret-access-token':
+                        config.GESTAOCLICK_SECRET_ACCESS_TOKEN,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const resultado = resposta.data;
+
+            if (
+                resultado?.status !== 'success' ||
+                Number(resultado?.code || 200) >= 400
+            ) {
+                throw new Error('Resposta de erro do GestãoClick.');
+            }
+
+            return resultado;
+        } catch (erro) {
+            // Não imprime o objeto Axios: ele contém as chaves.
+            const status = erro.response?.status;
+
+            throw new Error(
+                status
+                    ? `GestãoClick retornou HTTP ${status}.`
+                    : 'Não foi possível concluir a consulta ao GestãoClick.'
+            );
+        } finally {
+            await new Promise(resolve => setTimeout(resolve, 400));
+        }
+    };
+
+    const tarefa = gcFila.then(executar, executar);
+    gcFila = tarefa.catch(() => {});
+    return tarefa;
+}
+
+async function gcListar(caminho, parametros) {
+    const registros = [];
+
+    for (let pagina = 1; pagina <= 100; pagina++) {
+        const resposta = await gcApi('GET', caminho, {
+            ...parametros,
+            pagina,
+            limite: 100
+        });
+
+        if (!Array.isArray(resposta.data)) {
+            throw new Error('Lista inesperada retornada pelo GestãoClick.');
+        }
+
+        registros.push(...resposta.data);
+
+        const paginas = Number(resposta.meta?.total_paginas);
+
+        if (
+            (Number.isFinite(paginas) && pagina >= paginas) ||
+            (!Number.isFinite(paginas) && resposta.data.length < 100)
+        ) {
+            return registros;
+        }
+    }
+
+    throw new Error('Consulta muito extensa. Confira no GestãoClick.');
+}
+
+function gcPagamento(entrega) {
+	    if (
+			entrega.total !== null &&
+			entrega.total !== undefined &&
+			Number(entrega.total) === 0
+		) {
+			if (entrega.status_entrega !== 'entregue') {
+				throw new Error(
+					'O motoboy precisa confirmar a troca antes da baixa.'
+				);
+			}
+
+			const pix = gcCentavos(entrega.valor_recebido_pix ?? 0);
+			const dinheiro = gcCentavos(
+				entrega.valor_recebido_dinheiro ?? 0
+			);
+			const abatimento = gcCentavos(
+				entrega.dinheiro_conta_prazo ?? 0
+			);
+
+			if (pix > 0 || dinheiro > 0 || abatimento > 0) {
+				throw new Error(
+					'Esta troca tem valores recebidos. ' +
+					'Confira esses valores no GestãoClick antes de encerrar.'
+				);
+			}
+
+			return {
+				total: 0,
+				modo: 'Troca'
+			};
+		}
+		
+    if (
+        entrega.forma_pagamento === 'conta_prazo' ||
+        Number(entrega.cliente_conta_prazo_id) > 0 ||
+        Number(entrega.dinheiro_conta_prazo) > 0
+    ) {
+        throw new Error('Conta a prazo: conferir e baixar manualmente.');
+    }
+
+    if (entrega.status_entrega !== 'entregue') {
+        throw new Error('A entrega precisa estar marcada como entregue.');
+    }
+
+    const total = gcCentavos(entrega.total);
+
+    if (total <= 0) {
+        throw new Error('O total do pedido precisa ser maior que zero.');
+    }
+
+    let pix = 0;
+    let dinheiro = 0;
+
+    if (entrega.forma_pagamento === 'pix') {
+        pix = total;
+    } else if (entrega.forma_pagamento === 'dinheiro') {
+        pix = gcCentavos(entrega.valor_recebido_pix ?? 0);
+        dinheiro = gcCentavos(
+            entrega.valor_recebido_dinheiro ?? entrega.total
+        );
+    } else {
+        throw new Error('Pagamento ainda não informado.');
+    }
+
+    if (
+        !(
+            (pix === total && dinheiro === 0) ||
+            (dinheiro === total && pix === 0)
+        )
+    ) {
+        throw new Error(
+            'Pagamento misto, parcial ou diferente do total. ' +
+            'Confira no GestãoClick.'
+        );
+    }
+
+    return {
+        total,
+        modo: pix === total ? 'PIX' : 'Dinheiro'
+    };
+}
+
+// Histórico persistente: impede repetir uma tentativa de baixa
+// cujo resultado ficou incerto.
+async function gcPrepararHistorico() {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS entregas_gc_baixas (
+            recebimento_id VARCHAR(40) NOT NULL PRIMARY KEY,
+            entrega_id BIGINT NOT NULL,
+            venda_id VARCHAR(40) NOT NULL,
+            forma VARCHAR(20) NOT NULL,
+            valor_centavos BIGINT NOT NULL,
+            status VARCHAR(30) NOT NULL,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP
+        )
+    `);
+}
+
+async function gcEntrega(id) {
+    if (!/^\d+$/.test(String(id))) {
+        throw new Error('Entrega inválida.');
+    }
+
+    const [registros] = await db.execute(
+        'SELECT * FROM entregas_motoboy WHERE id = ?',
+        [id]
+    );
+
+    if (registros.length !== 1) {
+        throw new Error('Entrega não encontrada.');
+    }
+
+    return registros[0];
+}
+
+async function gcConferir(id) {
+    const entrega = await gcEntrega(id);
+    const pagamento = gcPagamento(entrega);
+    const config = gcConfiguracao();
+
+    const codigo = String(entrega.pedido || '').trim();
+
+    if (!/^\d+$/.test(codigo)) {
+        throw new Error('O pedido precisa ter um único número de venda.');
+    }
+
+    const vendas = (await gcListar('/vendas', {
+        codigo,
+        loja_id: config.GESTAOCLICK_LOJA_ID,
+        tipo: 'vendas_balcao'
+    })).filter(venda => String(venda.codigo) === codigo);
+
+    if (vendas.length !== 1) {
+        throw new Error('Venda não encontrada ou resultado ambíguo.');
+    }
+
+    const venda = vendas[0];
+
+    if (
+        !venda.id ||
+        !venda.cliente_id ||
+        gcNome(venda.nome_cliente) !== gcNome(entrega.cliente) ||
+        gcCentavos(venda.valor_total) !== pagamento.total
+    ) {
+        throw new Error(
+            'Cliente ou valor do painel não corresponde à venda. ' +
+            'Confira no GestãoClick.'
+        );
+    }
+
+    if (
+        venda.loja_id &&
+        String(venda.loja_id) !== config.GESTAOCLICK_LOJA_ID
+    ) {
+        throw new Error('A venda pertence a outra loja.');
+    }
+
+    // Consulta também recebimentos já pagos para evitar duplicidade.
+    const recebimentos = await gcListar('/recebimentos', {
+        loja_id: config.GESTAOCLICK_LOJA_ID,
+        cliente_id: venda.cliente_id
+    });
+
+    const encontrados = recebimentos.filter(recebimento => {
+        const referencia = String(recebimento.descricao || '')
+            .trim()
+            .match(/^Venda de n[º°o]\s*(\d+)$/i);
+
+        return (
+            referencia?.[1] === codigo &&
+            String(recebimento.cliente_id) === String(venda.cliente_id) &&
+            String(recebimento.loja_id) === config.GESTAOCLICK_LOJA_ID
+        );
+    });
+
+    if (encontrados.length !== 1) {
+        throw new Error(
+            'Não foi encontrado um único recebimento para esta venda. ' +
+            'Vendas parceladas ou referências diferentes exigem conferência manual.'
+        );
+    }
+
+    const recebimento = encontrados[0];
+
+    if (
+        gcCentavos(recebimento.valor) !== pagamento.total ||
+        gcCentavos(recebimento.valor_total) !== pagamento.total ||
+        ['juros', 'desconto', 'taxa_banco', 'taxa_operadora']
+            .some(campo => gcCentavos(recebimento[campo] ?? 0) !== 0)
+    ) {
+        throw new Error(
+            'Recebimento com valor diferente, juros, descontos ou taxas. ' +
+            'Confira no GestãoClick.'
+        );
+    }
+
+    let formaId;
+
+	if (pagamento.modo === 'Troca') {
+		if (String(recebimento.forma_pagamento_id) !== '6359000') {
+			throw new Error(
+				'O recebimento zerado não está como Devolução de Mercadorias. ' +
+				'Confira no GestãoClick.'
+			);
+		}
+
+		if (
+			String(recebimento.conta_bancaria_id) !==
+			config.GESTAOCLICK_CONTA_BANCARIA_ID
+		) {
+			throw new Error(
+				'A conta do recebimento difere da conta configurada. ' +
+				'Confira no GestãoClick.'
+			);
+		}
+
+		formaId = String(recebimento.forma_pagamento_id);
+	} else {
+		formaId = pagamento.modo === 'PIX'
+			? config.GESTAOCLICK_FORMA_PIX_ID
+			: config.GESTAOCLICK_FORMA_DINHEIRO_ID;
+	}
+
+    return { entrega, pagamento, venda, recebimento, formaId, config };
+}
+
+function gcAssinatura(dados) {
+    // Assina os dados apresentados para detectar alterações
+    // entre a tela de conferência e o clique de confirmação.
+    return require('crypto')
+        .createHmac(
+            'sha256',
+            gcConfiguracao().GESTAOCLICK_SECRET_ACCESS_TOKEN
+        )
+        .update(JSON.stringify({
+            entrega: String(dados.entrega.id),
+            pedido: String(dados.entrega.pedido),
+            cliente: dados.entrega.cliente,
+            venda: String(dados.venda.id),
+            recebimento: dados.recebimento,
+            pagamento: dados.pagamento,
+            forma: dados.formaId,
+            conta: dados.config.GESTAOCLICK_CONTA_BANCARIA_ID
+        }))
+        .digest('hex');
+}
+
+function gcPagina(res, mensagem, conteudo = '') {
+    return res.send(paginaEntregas('Pagamento no GestãoClick', `
+        <section>
+            <h2>${escaparHtml(mensagem)}</h2>
+            ${conteudo}
+            <p><a href="/entregas/painel">Voltar ao painel</a></p>
+        </section>
+    `));
+}
+
+app.get(
+    '/entregas/:id/gestaoclick',
+    autenticarEntregas,
+    async (req, res) => {
+        try {
+            await gcPrepararHistorico();
+            const dados = await gcConferir(req.params.id);
+            const r = dados.recebimento;
+
+            if (String(r.liquidado) === '1') {
+                return gcPagina(
+                    res,
+                    'Este recebimento já está pago no GestãoClick.'
+                );
+            }
+
+            const [historico] = await db.execute(
+                `SELECT status FROM entregas_gc_baixas
+                 WHERE recebimento_id = ?`,
+                [String(r.id)]
+            );
+
+            if (historico.length) {
+                return gcPagina(
+                    res,
+                    'Já existe uma tentativa registrada. ' +
+                    'Confira o recebimento diretamente no GestãoClick.'
+                );
+            }
+
+            return gcPagina(res, 'Confira antes de confirmar', `
+                <p>Venda: <strong>${
+                    escaparHtml(dados.venda.codigo)
+                }</strong></p>
+
+                <p>Cliente: <strong>${
+                    escaparHtml(dados.venda.nome_cliente)
+                }</strong></p>
+
+                <p>Loja: <strong>${
+                    escaparHtml(r.nome_loja)
+                }</strong></p>
+
+                <p>Valor: <strong>${
+                    moedaEntregas(dados.pagamento.total / 100)
+                }</strong></p>
+
+                <p>Forma: <strong>${
+                    dados.pagamento.modo
+                }</strong></p>
+
+                <p>Confirme somente depois de conferir o dinheiro
+                ou o recebimento do PIX no banco.</p>
+
+                <form method="post"
+                      action="/entregas/${Number(dados.entrega.id)}/gestaoclick">
+                    ${csrfEntregaCampo()}
+
+                    <input type="hidden" name="assinatura"
+                           value="${gcAssinatura(dados)}">
+
+                    <button type="submit">
+                        Confirmar baixa no GestãoClick
+                    </button>
+                </form>
+            `);
+        } catch (erro) {
+            return gcPagina(res, erro.message);
+        }
+    }
+);
+
+app.post(
+    '/entregas/:id/gestaoclick',
+    autenticarEntregas,
+    validarFormularioEntrega,
+    async (req, res) => {
+        let tentativaRegistrada = false;
+        let recebimentoId;
+
+        try {
+            await gcPrepararHistorico();
+
+            // Refaz as consultas antes de qualquer alteração.
+            const dados = await gcConferir(req.params.id);
+            const r = dados.recebimento;
+            recebimentoId = String(r.id);
+
+            if (String(r.liquidado) === '1') {
+                return gcPagina(
+                    res,
+                    'Este recebimento já está pago no GestãoClick.'
+                );
+            }
+
+            if (String(r.liquidado) !== '0') {
+                throw new Error('Situação financeira desconhecida.');
+            }
+
+            if (req.body.assinatura !== gcAssinatura(dados)) {
+                throw new Error(
+                    'Os dados mudaram. Volte e abra novamente a conferência.'
+                );
+            }
+
+            const corpo = {};
+
+            // Preserva os dados financeiros originais.
+            const campos = [
+                'descricao',
+                'data_vencimento',
+                'data_competencia',
+                'valor',
+                'valor_total',
+                'juros',
+                'desconto',
+                'plano_contas_id',
+                'centro_custo_id',
+                'entidade',
+                'cliente_id'
+            ];
+
+            for (const campo of campos) {
+                if (r[campo] !== undefined && r[campo] !== null) {
+                    corpo[campo] = String(r[campo]);
+                }
+            }
+
+            for (const campo of [
+                'descricao',
+                'data_vencimento',
+                'data_competencia',
+                'plano_contas_id'
+            ]) {
+                if (!corpo[campo]) {
+                    throw new Error(`Recebimento sem ${campo}.`);
+                }
+            }
+
+            corpo.forma_pagamento_id = dados.formaId;
+            corpo.conta_bancaria_id =
+                dados.config.GESTAOCLICK_CONTA_BANCARIA_ID;
+            corpo.liquidado = '1';
+            corpo.data_liquidacao = require('luxon').DateTime
+                .now()
+                .setZone('America/Sao_Paulo')
+                .toISODate();
+
+            // A chave primária impede duas baixas simultâneas
+            // deste mesmo recebimento pelo bot.
+            try {
+                await db.execute(`
+                    INSERT INTO entregas_gc_baixas
+                    (
+                        recebimento_id, entrega_id, venda_id,
+                        forma, valor_centavos, status
+                    )
+                    VALUES (?, ?, ?, ?, ?, 'tentativa')
+                `, [
+                    recebimentoId,
+                    dados.entrega.id,
+                    String(dados.venda.id),
+                    dados.pagamento.modo,
+                    dados.pagamento.total
+                ]);
+            } catch (erro) {
+                if (erro.code === 'ER_DUP_ENTRY') {
+                    throw new Error(
+                        'Já existe uma tentativa para este recebimento. ' +
+                        'Confira no GestãoClick antes de qualquer nova baixa.'
+                    );
+                }
+
+                throw erro;
+            }
+
+            tentativaRegistrada = true;
+
+            await gcApi(
+                'PUT',
+                `/recebimentos/${encodeURIComponent(recebimentoId)}`,
+                {},
+                corpo
+            );
+
+            const verificacao = await gcApi(
+                'GET',
+                `/recebimentos/${encodeURIComponent(recebimentoId)}`
+            );
+
+            const confirmado = verificacao.data;
+
+            if (
+                !confirmado ||
+                String(confirmado.id) !== recebimentoId ||
+                String(confirmado.liquidado) !== '1' ||
+                String(confirmado.forma_pagamento_id) !== dados.formaId ||
+                String(confirmado.conta_bancaria_id) !==
+                    dados.config.GESTAOCLICK_CONTA_BANCARIA_ID ||
+                gcCentavos(confirmado.valor_total) !== dados.pagamento.total
+            ) {
+                throw new Error('Não foi possível verificar a baixa.');
+            }
+
+            await db.execute(`
+                UPDATE entregas_gc_baixas
+                SET status = 'confirmado'
+                WHERE recebimento_id = ?
+            `, [recebimentoId]);
+
+            const dataRetornoGC =
+				dados.entrega.data_rota instanceof Date
+					? require('luxon').DateTime
+						.fromJSDate(dados.entrega.data_rota)
+						.toISODate()
+					: String(dados.entrega.data_rota).slice(0, 10);
+
+			return res.redirect(
+				303,
+				'/entregas/conferencia?data=' +
+					encodeURIComponent(dataRetornoGC)
+			);
+        } catch (erro) {
+            if (tentativaRegistrada) {
+                await db.execute(`
+                    UPDATE entregas_gc_baixas
+                    SET status = 'conferir'
+                    WHERE recebimento_id = ?
+                `, [recebimentoId]).catch(() => {});
+
+                return gcPagina(
+                    res,
+                    'A tentativa foi registrada, mas não foi possível ' +
+                    'confirmar o resultado. Confira no GestãoClick. ' +
+                    'O bot bloqueou uma nova tentativa para evitar repetição.'
+                );
+            }
+
+            return gcPagina(res, erro.message);
+        }
+    }
+);
+
 app.get(
     '/entregas/painel',
     autenticarEntregas,
@@ -4007,6 +4661,7 @@ app.get(
                                 ${opcoesHorarios}
                             </select>
                         </div>
+
 
                         <div>
 							<label>Motoboy</label>
@@ -4591,17 +5246,86 @@ app.get('/entregas/motoboy/:codigo', async (req, res) => {
 
             let opcoes;
 
-            if (!restantes.length) {
-                opcoes = `
-                    <button name="acao" value="entregue_pago" class="pix">
-                        Entregue
-                    </button>
+			if (Number(total) === 0) {
+				opcoes = `
+					<button
+						type="submit"
+						name="acao"
+						value="troca"
+						class="pix"
+					>
+						Troca
+					</button>
 
-                    <button name="acao" value="nao_entregue" class="cinza">
-                        Não entregue
-                    </button>
-                `;
-            } else if (contaInvalida) {
+					<div style="
+						padding: 12px;
+						border: 1px solid #666;
+						border-radius: 8px;
+					">
+						<div style="
+							display: grid;
+							grid-template-columns: repeat(2, minmax(0, 1fr));
+							gap: 10px;
+						">
+							<div style="min-width: 0;">
+								<label for="pix-troca-${primeiro.id}">
+									Valor no PIX
+								</label>
+
+								<input
+									id="pix-troca-${primeiro.id}"
+									name="pix_misto"
+									type="text"
+									inputmode="decimal"
+									autocomplete="off"
+									placeholder="Ex.: 40,00"
+									style="width: 100%; box-sizing: border-box;"
+								>
+							</div>
+
+							<div style="min-width: 0;">
+								<label for="dinheiro-troca-${primeiro.id}">
+									Valor em dinheiro
+								</label>
+
+								<input
+									id="dinheiro-troca-${primeiro.id}"
+									name="dinheiro_misto"
+									type="text"
+									inputmode="decimal"
+									autocomplete="off"
+									placeholder="Ex.: 25,00"
+									style="width: 100%; box-sizing: border-box;"
+								>
+							</div>
+						</div>
+
+						<p style="font-size: 13px;">
+							Informe o total recebido nesta troca.
+							Um campo pode ficar vazio.
+							Para registrar sem pagamento, clique em Troca.
+						</p>
+
+						<button
+							type="submit"
+							name="acao"
+							value="troca_pagamento"
+							class="pix"
+						>
+							Entregue — salvar pagamento
+						</button>
+					</div>
+
+					<button
+						type="submit"
+						name="acao"
+						value="nao_entregue"
+						class="cinza"
+					>
+						Não entregue
+					</button>
+				`;
+			} else if (!restantes.length) {
                 opcoes = `
                     <p class="aviso">
                         A loja precisa conferir o cadastro da conta
@@ -4736,10 +5460,12 @@ app.get('/entregas/motoboy/:codigo', async (req, res) => {
                         Entrega:
                         <strong>
                             ${
-                                estadosDiferentes
-                                    ? 'Parcial — há pedidos com situações diferentes'
-                                    : escaparHtml(statusEntregaTexto(estado))
-                            }
+								estadosDiferentes
+									? 'Parcial — há pedidos com situações diferentes'
+									: Number(total) === 0 && estado === 'entregue'
+										? 'Troca'
+										: escaparHtml(statusEntregaTexto(estado))
+							}
                         </strong>
                     </p>
 
@@ -4887,6 +5613,8 @@ app.post(
         const acao = String(req.body.acao || '');
 
         const permitidas = [
+			'troca',
+			'troca_pagamento',
             'entregue_pago',
             'pix',
             'dinheiro',
@@ -4977,11 +5705,19 @@ app.post(
                 );
             }
 
-            const acoesGrupo = !restantes.length
-                ? ['entregue_pago', 'nao_entregue']
-                : conta
-                    ? ['conta_prazo', 'nao_entregue', 'recebimento_prazo']
-                    : ['pix', 'dinheiro', 'pix_dinheiro', 'nao_entregue'];
+            const grupoTroca = grupo.every(e =>
+				e.total !== null &&
+				e.total !== undefined &&
+				Number(e.total) === 0
+			);
+
+			const acoesGrupo = grupoTroca
+				? ['troca', 'troca_pagamento', 'nao_entregue']
+				: !restantes.length
+					? ['entregue_pago', 'nao_entregue']
+					: conta
+						? ['conta_prazo', 'nao_entregue', 'recebimento_prazo']
+						: ['pix', 'dinheiro', 'pix_dinheiro', 'nao_entregue'];
 
             if (!acoesGrupo.includes(acao)) {
                 throw erroGrupoEntrega(
@@ -4991,7 +5727,65 @@ app.post(
                 );
             }
 
-            if (acao === 'recebimento_prazo') {
+            if (acao === 'troca') {
+				// Confirma a entrega sem alterar valores já registrados.
+				for (const e of grupo) {
+					await conexao.execute(`
+						UPDATE entregas_motoboy
+						SET status_entrega = 'entregue'
+						WHERE id = ?
+						  AND codigo_acesso = ?
+					`, [e.id, codigo]);
+				}
+			} else if (acao === 'troca_pagamento') {
+				const textoPix = String(req.body.pix_misto ?? '').trim();
+				const textoDinheiro = String(req.body.dinheiro_misto ?? '').trim();
+
+				const pix = textoPix === ''
+					? 0
+					: centavosEntregas(textoPix);
+
+				const dinheiro = textoDinheiro === ''
+					? 0
+					: centavosEntregas(textoDinheiro);
+
+				if (
+					pix === null ||
+					dinheiro === null ||
+					!Number.isFinite(pix) ||
+					!Number.isFinite(dinheiro) ||
+					pix < 0 ||
+					dinheiro < 0 ||
+					pix + dinheiro <= 0
+				) {
+					throw erroGrupoEntrega(
+						'Preencha pelo menos um valor maior que zero. ' +
+						'Para troca sem pagamento, clique em Troca.'
+					);
+				}
+
+				// Registra o total uma única vez no grupo.
+				// Um novo registro substitui o anterior.
+				for (let indice = 0; indice < grupo.length; indice++) {
+					const e = grupo[indice];
+
+					await conexao.execute(`
+						UPDATE entregas_motoboy
+						SET status_entrega = 'entregue',
+							forma_pagamento = 'dinheiro',
+							pix_confirmado_atendente = 0,
+							valor_recebido_pix = ?,
+							valor_recebido_dinheiro = ?
+						WHERE id = ?
+						  AND codigo_acesso = ?
+					`, [
+						indice === 0 ? (pix / 100).toFixed(2) : '0.00',
+						indice === 0 ? (dinheiro / 100).toFixed(2) : '0.00',
+						e.id,
+						codigo
+					]);
+				}
+			} else if (acao === 'recebimento_prazo') {
                 const recebido = centavosEntregas(
                     req.body.dinheiro_prazo
                 );
@@ -5483,13 +6277,72 @@ app.get(
 					pedido,
 					cliente,
 					total,
-					coletar,
-					dinheiro_conta_prazo,
-					cliente_conta_prazo_id
+					status_entrega,
+					forma_pagamento,
+					pix_confirmado_atendente,
+					valor_recebido_pix,
+					valor_recebido_dinheiro
 				FROM entregas_motoboy
 				WHERE data_rota = ?
 				ORDER BY id DESC
 			`, [data]);
+			
+						function pagamentoNaConferencia(entrega) {
+				if (
+					entrega.total !== null &&
+					entrega.total !== undefined &&
+					Number(entrega.total) === 0 &&
+					entrega.status_entrega === 'entregue'
+				) {
+					return 'Troca';
+				}
+			
+				if (pixConfirmadoPeloAtendente(entrega)) {
+					return 'PIX — confirmado pelo atendente';
+				}
+
+				if (entrega.forma_pagamento === 'conta_prazo') {
+					return 'Conta a prazo';
+				}
+
+				if (entrega.forma_pagamento === 'pix') {
+					return 'PIX';
+				}
+
+				if (entrega.forma_pagamento === 'dinheiro') {
+					const pix = Number(entrega.valor_recebido_pix || 0);
+
+					const dinheiro = Number(
+						entrega.valor_recebido_dinheiro ?? entrega.total ?? 0
+					);
+
+					if (pix > 0 && dinheiro > 0) {
+						return 'PIX + Dinheiro';
+					}
+
+					if (pix > 0) {
+						return 'PIX';
+					}
+
+					if (dinheiro > 0) {
+						return 'Dinheiro';
+					}
+				}
+
+				return 'Não informado';
+			}
+			
+			await gcPrepararHistorico();
+
+			const [baixasConfirmadasGC] = await db.execute(`
+				SELECT entrega_id
+				FROM entregas_gc_baixas
+				WHERE status = 'confirmado'
+			`);
+
+			const entregasConfirmadasGC = new Set(
+				baixasConfirmadasGC.map(baixa => String(baixa.entrega_id))
+			);
 
 			const linhasPedidosConferencia = pedidosConferencia.map(e => `
 				<tr>
@@ -5499,25 +6352,47 @@ app.get(
 					<td>${escaparHtml(e.cliente)}</td>
 					<td>${moedaEntregas(e.total)}</td>
 					<td>
-						${Number(e.dinheiro_conta_prazo) > 0 ? `
-							<strong style="color: #4ade80;">
-								${moedaEntregas(e.dinheiro_conta_prazo)}
-							</strong>
-
-							<div style="font-size: 12px; color: #ccc;">
-								Conta do cliente #${Number(e.cliente_conta_prazo_id)}
-								— conferir e baixar manualmente
-							</div>
-						` : '—'}
+						<strong>
+							${escaparHtml(pagamentoNaConferencia(e))}
+						</strong>
 					</td>
-					<td style="
-						min-width: 140px;
-						max-width: 280px;
-						white-space: pre-wrap;
-						overflow-wrap: anywhere;
-						color: ${e.coletar ? '#f1c40f' : '#aaa'};
-					">${escaparHtml(e.coletar || '—')}</td>
+
 					<td>
+						${entregasConfirmadasGC.has(String(e.id)) ? `
+							<span style="
+								display: inline-block;
+								color: #4ade80;
+								font-weight: bold;
+								margin-bottom: 6px;
+							">
+								✓ Confirmado no GestãoClick
+							</span>
+						` : e.forma_pagamento === 'conta_prazo' ? `
+							<span style="
+								display: inline-block;
+								color: #aaa;
+								margin-bottom: 6px;
+							">
+								Conta a prazo — conferência manual
+							</span>
+						` : `
+							<a
+								href="/entregas/${Number(e.id)}/gestaoclick"
+								style="
+									display: inline-block;
+									background: #15803d;
+									color: white;
+									padding: 8px 12px;
+									border-radius: 6px;
+									text-decoration: none;
+									font-weight: bold;
+									margin-bottom: 6px;
+								"
+							>
+								Confirmar pagamento no GestãoClick
+							</a>
+						`}
+					
 						<form
 							method="post"
 							action="/entregas/${e.id}/excluir"
@@ -5887,6 +6762,7 @@ function prepararColunaColeta() {
 // ======================================================
 // ENVIAR ROTA AO WHATSAPP DO MOTOBOY
 // ======================================================
+
 
 const telefonesMotoboys = new Map([
     ['marcelo', '555193480713'],
