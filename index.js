@@ -3957,22 +3957,70 @@ function gcPagamento(entrega) {
         throw new Error('Pagamento ainda não informado.');
     }
 
-    if (
-        !(
-            (pix === total && dinheiro === 0) ||
-            (dinheiro === total && pix === 0)
-        )
-    ) {
-        throw new Error(
-            'Pagamento misto, parcial ou diferente do total. ' +
-            'Confira no GestãoClick.'
-        );
-    }
+        const totalRecebido = pix + dinheiro;
 
-    return {
-        total,
-        modo: pix === total ? 'PIX' : 'Dinheiro'
-    };
+		if (
+			!Number.isSafeInteger(pix) ||
+			!Number.isSafeInteger(dinheiro) ||
+			!Number.isSafeInteger(totalRecebido) ||
+			pix < 0 ||
+			dinheiro < 0
+		) {
+			throw new Error('Os valores recebidos são inválidos.');
+		}
+
+		if (totalRecebido < total) {
+			throw new Error(
+				'O valor recebido é menor que o total da venda. ' +
+				'Confira o saldo em "Sem marcação".'
+			);
+		}
+
+		if (totalRecebido > total && pix > 0) {
+			throw new Error(
+				'Recebimento acima do total está disponível somente ' +
+				'para pagamento integral em dinheiro. ' +
+				'Excedente com PIX exige conferência manual.'
+			);
+		}
+
+		if (pix > 0 && dinheiro > 0) {
+			const config = gcConfiguracao();
+
+			const situacaoConfirmadoId = String(
+				process.env.GESTAOCLICK_SITUACAO_CONFIRMADO_ID || ''
+			).trim();
+
+			if (!/^\d+$/.test(situacaoConfirmadoId)) {
+				throw new Error(
+					'Configure GESTAOCLICK_SITUACAO_CONFIRMADO_ID no Railway.'
+				);
+			}
+
+			if (
+				config.GESTAOCLICK_FORMA_PIX_ID ===
+				config.GESTAOCLICK_FORMA_DINHEIRO_ID
+			) {
+				throw new Error('PIX e Dinheiro precisam ter IDs diferentes.');
+			}
+
+			return {
+				total,
+				pix,
+				dinheiro,
+				modo: 'PIX + Dinheiro',
+				formaPixId: config.GESTAOCLICK_FORMA_PIX_ID,
+				formaDinheiroId: config.GESTAOCLICK_FORMA_DINHEIRO_ID,
+				situacaoConfirmadoId
+			};
+		}
+
+		return {
+			total,
+			totalRecebido,
+			excedente: totalRecebido - total,
+			modo: pix === total ? 'PIX' : 'Dinheiro'
+		};
 }
 
 // Histórico persistente: impede repetir uma tentativa de baixa
@@ -4132,6 +4180,280 @@ async function gcConferir(id) {
     return { entrega, pagamento, venda, recebimento, formaId, config };
 }
 
+function gcValorTelaCentavos(valor) {
+    const texto = String(valor ?? '').trim();
+
+    // Valores da tela: 80,00 ou 1.280,00.
+    if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+),\d{2}$/.test(texto)) {
+        throw new Error('Formato de valor inesperado na tela do GestãoClick.');
+    }
+
+    const centavos = Number(texto.replace(/\./g, '').replace(',', ''));
+
+    if (!Number.isSafeInteger(centavos)) {
+        throw new Error('Valor inválido no GestãoClick.');
+    }
+
+    return centavos;
+}
+
+function gcValorTela(centavos) {
+    return (
+        Math.floor(centavos / 100) +
+        ',' +
+        String(centavos % 100).padStart(2, '0')
+    );
+}
+
+async function gcApiTela(metodo, recebimentoId, corpo) {
+    if (!/^\d+$/.test(String(recebimentoId))) {
+        throw new Error('ID de recebimento inválido.');
+    }
+
+    const token = String(
+        process.env.GESTAOCLICK_X_TOKEN_AUTH || ''
+    ).trim();
+
+    if (!token || /[\x00-\x1F\x7F]/.test(token)) {
+        throw new Error(
+            'Configure ou atualize GESTAOCLICK_X_TOKEN_AUTH no Railway.'
+        );
+    }
+
+    let resposta;
+
+    try {
+        resposta = await require('axios').request({
+            method: metodo,
+            url:
+                'https://erp.api.click.app/financeiro/' +
+                'movimentacoes_financeiras/editar_recebimento/' +
+                encodeURIComponent(recebimentoId),
+            data: corpo,
+            timeout: 30000,
+            maxRedirects: 0,
+            headers: {
+                'x-token-auth': token,
+                Accept: 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+    } catch (erro) {
+        // Não repassa o objeto Axios: ele contém o token.
+        const status = Number(erro.response?.status);
+
+        if (status === 401 || status === 403) {
+            throw new Error(
+                'Acesso à tela do GestãoClick recusado. ' +
+                'Confira o token e as permissões do usuário.'
+            );
+        }
+
+        throw new Error(
+            'Falha na comunicação com a tela do GestãoClick' +
+            (status ? ` (HTTP ${status}).` : '.')
+        );
+    }
+
+    let resultado = resposta.data;
+
+    if (typeof resultado === 'string') {
+        try {
+            resultado = JSON.parse(resultado);
+        } catch {
+            throw new Error(
+                'O GestãoClick não retornou JSON. Confira o token da tela.'
+            );
+        }
+    }
+
+    if (
+        resultado?.status !== 'success' ||
+        Number(resultado?.code || 200) >= 400
+    ) {
+        throw new Error(
+            'A tela do GestãoClick não confirmou sucesso. ' +
+            'Confira o token e o recebimento.'
+        );
+    }
+
+    return resultado;
+}
+
+async function gcPrepararPagamentoMisto(dados) {
+    const { recebimento: r, venda, pagamento: p, config } = dados;
+
+    if (String(r.liquidado) !== '0') {
+        throw new Error('O recebimento precisa estar em aberto.');
+    }
+
+    const resposta = await gcApiTela('GET', String(r.id));
+
+    let registro = resposta.data?.['request.data'];
+
+    if (typeof registro === 'string') {
+        try {
+            registro = JSON.parse(registro);
+        } catch {
+            throw new Error('Dados de edição inválidos no GestãoClick.');
+        }
+    }
+
+    if (!registro || typeof registro !== 'object') {
+        throw new Error('O GestãoClick não retornou os dados de edição.');
+    }
+
+    // Copia os dados retornados para preservar os vínculos originais.
+    registro = JSON.parse(JSON.stringify(registro));
+
+    const m = registro.MovimentacoesFinanceira;
+
+    const referencia = String(m?.nome || '')
+        .trim()
+        .match(/^Venda de n[º°o]\s*(\d+)$/i);
+
+    if (
+        !m ||
+        String(m.id) !== String(r.id) ||
+        String(m.loja_id) !== config.GESTAOCLICK_LOJA_ID ||
+        String(m.cliente_id) !== String(venda.cliente_id) ||
+        String(m.pedido_id) !== String(venda.id) ||
+        referencia?.[1] !== String(venda.codigo) ||
+        String(m.baixado) !== '0' ||
+        String(m.tipo) !== 'C' ||
+        String(m.conta_bancaria_id) !==
+            config.GESTAOCLICK_CONTA_BANCARIA_ID ||
+        String(m.categoria_id) !== String(r.plano_contas_id) ||
+        gcValorTelaCentavos(m.valor) !== p.total ||
+        gcValorTelaCentavos(m.valor_total) !== p.total ||
+        gcValorTelaCentavos(m.juros) !== 0 ||
+        gcValorTelaCentavos(m.desconto) !== 0
+    ) {
+        throw new Error(
+            'Os dados da tela diferem do recebimento conferido. ' +
+            'Nenhum parcelamento foi enviado.'
+        );
+    }
+
+    const existentes = registro.MovimentacoesFinanceirasParcela;
+
+    if (
+        existentes != null &&
+        (!Array.isArray(existentes) || existentes.filter(Boolean).length)
+    ) {
+        throw new Error(
+            'O recebimento já contém parcelas. Confira no GestãoClick.'
+        );
+    }
+
+    const hoje = require('luxon').DateTime
+        .now()
+        .setZone('America/Sao_Paulo')
+        .toFormat('dd/MM/yyyy');
+
+    Object.assign(m, {
+        ocorrencia: 'P',
+        tipo_parcela: 'D',
+        repeticao: 'M',
+        quantidade: '2',
+        data_primeira_parcela: hoje,
+        intervalo_dias: ''
+    });
+
+    registro.MovimentacoesFinanceirasParcela = [
+        {
+            chave: 0.13801,
+            data_vencimento: hoje,
+            valor: gcValorTela(p.dinheiro),
+            forma_pagamento_id: p.formaDinheiroId,
+            nome_forma_pagamento: 'Dinheiro',
+            conta_bancaria_id: config.GESTAOCLICK_CONTA_BANCARIA_ID,
+            nome_conta_bancaria: String(m.nome_conta_bancaria || ''),
+            situacao_id: p.situacaoConfirmadoId,
+            baixado: 1,
+            observacoes: ''
+        },
+        {
+            chave: 0.13802,
+            data_vencimento: hoje,
+            valor: gcValorTela(p.pix),
+            forma_pagamento_id: p.formaPixId,
+            nome_forma_pagamento: 'Pix',
+            conta_bancaria_id: config.GESTAOCLICK_CONTA_BANCARIA_ID,
+            nome_conta_bancaria: String(m.nome_conta_bancaria || ''),
+            situacao_id: p.situacaoConfirmadoId,
+            baixado: 1,
+            observacoes: ''
+        }
+    ];
+
+    return { data: registro };
+}
+
+async function gcVerificarPagamentoMisto(dados) {
+    const { config, venda, pagamento: p, recebimento } = dados;
+
+    const registros = await gcListar('/recebimentos', {
+        loja_id: config.GESTAOCLICK_LOJA_ID,
+        cliente_id: venda.cliente_id
+    });
+
+    const parcelas = registros.filter(r => {
+        const referencia = String(r.descricao || '').trim().match(
+            /^Venda de n[º°o]\s*(\d+)(?:\s*\(\s*\d+\s*\/\s*\d+\s*\))?$/i
+        );
+
+        return (
+            referencia?.[1] === String(venda.codigo) &&
+            String(r.cliente_id) === String(venda.cliente_id) &&
+            String(r.loja_id) === config.GESTAOCLICK_LOJA_ID
+        );
+    });
+
+    const esperadas = new Map([
+        [p.formaDinheiroId, p.dinheiro],
+        [p.formaPixId, p.pix]
+    ]);
+
+    if (
+        parcelas.length !== 2 ||
+        new Set(parcelas.map(r => String(r.id))).size !== 2 ||
+        !parcelas.some(r => String(r.id) === String(recebimento.id))
+    ) {
+        throw new Error(
+            'Não foi possível identificar exatamente as duas parcelas.'
+        );
+    }
+
+    for (const r of parcelas) {
+        const forma = String(r.forma_pagamento_id);
+        const valorEsperado = esperadas.get(forma);
+
+        if (
+            valorEsperado === undefined ||
+            String(r.liquidado) !== '1' ||
+            String(r.conta_bancaria_id) !==
+                config.GESTAOCLICK_CONTA_BANCARIA_ID ||
+            String(r.plano_contas_id) !==
+                String(recebimento.plano_contas_id) ||
+            gcCentavos(r.valor) !== valorEsperado ||
+            gcCentavos(r.valor_total) !== valorEsperado ||
+            ['juros', 'desconto', 'taxa_banco', 'taxa_operadora']
+                .some(campo => gcCentavos(r[campo] ?? 0) !== 0)
+        ) {
+            throw new Error(
+                'As parcelas retornadas não correspondem ao pagamento enviado.'
+            );
+        }
+
+        esperadas.delete(forma);
+    }
+
+    if (esperadas.size !== 0) {
+        throw new Error('Falta confirmar uma das formas de pagamento.');
+    }
+}
+
 function gcAssinatura(dados) {
     // Assina os dados apresentados para detectar alterações
     // entre a tela de conferência e o clique de confirmação.
@@ -4218,13 +4540,42 @@ app.get(
                     escaparHtml(r.nome_loja)
                 }</strong></p>
 
-                <p>Valor: <strong>${
-                    moedaEntregas(dados.pagamento.total / 100)
-                }</strong></p>
+                <p>Valor da venda: <strong>${
+					moedaEntregas(dados.pagamento.total / 100)
+				}</strong></p>
+
+				<p>Valor recebido: <strong>${
+					moedaEntregas(
+						(dados.pagamento.totalRecebido ?? dados.pagamento.total) / 100
+					)
+				}</strong></p>
+
+				${dados.pagamento.excedente > 0 ? `
+					<p style="color: #f59e0b; font-weight: bold;">
+						Recebido a mais:
+						${moedaEntregas(dados.pagamento.excedente / 100)}.
+						Compensar manualmente como desconto na próxima compra.
+					</p>
+				` : ''}
 
                 <p>Forma: <strong>${
                     dados.pagamento.modo
                 }</strong></p>
+				
+                ${dados.pagamento.modo === 'PIX + Dinheiro' ? `
+                    <p>
+                        PIX:
+                        <strong>${
+                            moedaEntregas(dados.pagamento.pix / 100)
+                        }</strong>
+                    </p>
+                    <p>
+                        Dinheiro:
+                        <strong>${
+                            moedaEntregas(dados.pagamento.dinheiro / 100)
+                        }</strong>
+                    </p>
+                ` : ''}
 
                 <p>Confirme somente depois de conferir o dinheiro
                 ou o recebimento do PIX no banco.</p>
@@ -4279,6 +4630,15 @@ app.post(
                     'Os dados mudaram. Volte e abra novamente a conferência.'
                 );
             }
+			
+            const pagamentoMisto =
+                dados.pagamento.modo === 'PIX + Dinheiro';
+
+            // Consulta e valida antes de registrar a tentativa.
+            // Token inválido nesta etapa não bloqueia uma futura tentativa.
+            const corpoMisto = pagamentoMisto
+                ? await gcPrepararPagamentoMisto(dados)
+                : null;
 
             const corpo = {};
 
@@ -4315,6 +4675,12 @@ app.post(
             }
 			
 			corpo.loja_id = dados.config.GESTAOCLICK_LOJA_ID;
+			
+			const valorBaixaCentavos =
+				dados.pagamento.totalRecebido ?? dados.pagamento.total;
+
+			corpo.valor = (valorBaixaCentavos / 100).toFixed(2);
+			corpo.valor_total = (valorBaixaCentavos / 100).toFixed(2);
 
             corpo.forma_pagamento_id = dados.formaId;
             corpo.conta_bancaria_id =
@@ -4337,10 +4703,10 @@ app.post(
                     VALUES (?, ?, ?, ?, ?, 'tentativa')
                 `, [
                     recebimentoId,
-                    dados.entrega.id,
-                    String(dados.venda.id),
-                    dados.pagamento.modo,
-                    dados.pagamento.total
+					dados.entrega.id,
+					String(dados.venda.id),
+					dados.pagamento.modo,
+					valorBaixaCentavos
                 ]);
             } catch (erro) {
                 if (erro.code === 'ER_DUP_ENTRY') {
@@ -4355,31 +4721,77 @@ app.post(
 
             tentativaRegistrada = true;
 
-            await gcApi(
-				'PUT',
-				`/recebimentos/${encodeURIComponent(recebimentoId)}`,
-				{ loja_id: dados.config.GESTAOCLICK_LOJA_ID },
-				corpo
-			);
+            if (pagamentoMisto) {
+                // Um único envio. Não repete automaticamente se houver erro.
+                await gcApiTela(
+                    'POST',
+                    recebimentoId,
+                    corpoMisto
+                );
 
-            const verificacao = await gcApi(
-				'GET',
-				`/recebimentos/${encodeURIComponent(recebimentoId)}`,
-				{ loja_id: dados.config.GESTAOCLICK_LOJA_ID }
-			);
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-            const confirmado = verificacao.data;
+                // Confere as duas parcelas pela API pública.
+                await gcVerificarPagamentoMisto(dados);
+            } else {
+                await gcApi(
+                    'PUT',
+                    `/recebimentos/${encodeURIComponent(recebimentoId)}`,
+                    { loja_id: dados.config.GESTAOCLICK_LOJA_ID },
+                    corpo
+                );
 
-            if (
-                !confirmado ||
-                String(confirmado.id) !== recebimentoId ||
-                String(confirmado.liquidado) !== '1' ||
-                String(confirmado.forma_pagamento_id) !== dados.formaId ||
-                String(confirmado.conta_bancaria_id) !==
-                    dados.config.GESTAOCLICK_CONTA_BANCARIA_ID ||
-                gcCentavos(confirmado.valor_total) !== dados.pagamento.total
-            ) {
-                throw new Error('Não foi possível verificar a baixa.');
+                const verificacao = await gcApi(
+                    'GET',
+                    `/recebimentos/${encodeURIComponent(recebimentoId)}`,
+                    { loja_id: dados.config.GESTAOCLICK_LOJA_ID }
+                );
+
+                const confirmado = verificacao.data;
+
+				if (
+					!confirmado ||
+					String(confirmado.id) !== recebimentoId ||
+					String(confirmado.liquidado) !== '1' ||
+					String(confirmado.loja_id) !==
+						dados.config.GESTAOCLICK_LOJA_ID ||
+					String(confirmado.cliente_id) !==
+						String(dados.venda.cliente_id) ||
+					String(confirmado.forma_pagamento_id) !== dados.formaId ||
+					String(confirmado.conta_bancaria_id) !==
+						dados.config.GESTAOCLICK_CONTA_BANCARIA_ID ||
+					gcCentavos(confirmado.valor) !== valorBaixaCentavos ||
+					gcCentavos(confirmado.valor_total) !== valorBaixaCentavos ||
+					['juros', 'desconto', 'taxa_banco', 'taxa_operadora']
+						.some(campo => gcCentavos(confirmado[campo] ?? 0) !== 0)
+				) {
+					throw new Error('Não foi possível verificar a baixa.');
+				}
+
+				if (dados.pagamento.excedente > 0) {
+					const consultaVenda = await gcApi(
+						'GET',
+						`/vendas/${encodeURIComponent(dados.venda.id)}`,
+						{
+							loja_id: dados.config.GESTAOCLICK_LOJA_ID,
+							tipo: 'vendas_balcao'
+						}
+					);
+
+					const vendaDepois = consultaVenda.data;
+
+					if (
+						!vendaDepois ||
+						String(vendaDepois.id) !== String(dados.venda.id) ||
+						gcCentavos(vendaDepois.valor_total) !== dados.pagamento.total
+					) {
+						throw new Error(
+							'O recebimento foi enviado, mas não foi possível confirmar ' +
+							'que o valor original da venda foi preservado. ' +
+							'Confira no GestãoClick antes de qualquer nova tentativa.'
+						);
+					}
+				}
             }
 
             await db.execute(`
