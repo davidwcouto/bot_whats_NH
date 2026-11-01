@@ -7284,12 +7284,9 @@ app.get(
 						<p>
                             Telefone:
                             ${escaparHtml(primeiro.telefone || 'Não informado')}
-                        </p>
-
-                        <p>
-                            ${escaparHtml(primeiro.endereco || '')}
-                            <br>
-                            ${escaparHtml(primeiro.cidade || '')}
+							<br>
+							Endereço:
+                            ${escaparHtml(primeiro.endereco || '')} - ${escaparHtml(primeiro.cidade || '')}
                         </p>
 
                         <p>Entrega: <strong>${situacao}</strong></p>
