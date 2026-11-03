@@ -3862,6 +3862,30 @@ function gcApi(metodo, caminho, parametros = {}, corpo) {
     return tarefa;
 }
 
+function gcPeriodoRecebimentos(venda) {
+    const hoje = require('luxon').DateTime
+        .now()
+        .setZone('America/Sao_Paulo')
+        .toISODate();
+
+    const datas = [
+        hoje,
+        venda.data,
+        ...(venda.pagamentos || []).map(item =>
+            item.pagamento?.data_vencimento
+        )
+    ]
+        .map(valor => String(valor || '').slice(0, 10))
+        .filter(valor => /^\d{4}-\d{2}-\d{2}$/.test(valor));
+
+    const anos = datas.map(data => Number(data.slice(0, 4)));
+
+    return {
+        data_inicio: Math.min(...anos) + '-01-01',
+        data_fim: (Math.max(...anos) + 1) + '-12-31'
+    };
+}
+
 async function gcListar(caminho, parametros) {
     const registros = [];
 
@@ -4103,9 +4127,10 @@ async function gcConferir(id) {
 
     // Consulta também recebimentos já pagos para evitar duplicidade.
     const recebimentos = await gcListar('/recebimentos', {
-        loja_id: config.GESTAOCLICK_LOJA_ID,
-        cliente_id: venda.cliente_id
-    });
+		loja_id: config.GESTAOCLICK_LOJA_ID,
+		cliente_id: venda.cliente_id,
+		...gcPeriodoRecebimentos(venda)
+	});
 
     const encontrados = recebimentos.filter(recebimento => {
         const referencia = String(recebimento.descricao || '')
@@ -4494,9 +4519,10 @@ async function gcVerificarPagamentoMisto(dados) {
     const { config, venda, pagamento: p, recebimento } = dados;
 
     const registros = await gcListar('/recebimentos', {
-        loja_id: config.GESTAOCLICK_LOJA_ID,
-        cliente_id: venda.cliente_id
-    });
+		loja_id: config.GESTAOCLICK_LOJA_ID,
+		cliente_id: venda.cliente_id,
+		...gcPeriodoRecebimentos(venda)
+	});
 
     const parcelas = registros.filter(r => {
         const referencia = String(r.descricao || '').trim().match(
