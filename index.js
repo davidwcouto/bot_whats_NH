@@ -2747,6 +2747,40 @@ app.get('/financeiro/pagamento/:id', async (req, res) => {
                 Cancelar
             </a>
         </form>
+		<script>
+		(function () {
+			const formulario = document.querySelector(
+				'form[action="/financeiro/pagamentos"]'
+			);
+
+			if (!formulario) return;
+
+			const forma = formulario.querySelector('[name="forma"]');
+			const observacao = formulario.querySelector('[name="observacao"]');
+
+			function atualizarObservacao() {
+				const devolucao =
+					forma.value === 'Devolução de Mercadorias';
+
+				observacao.required = devolucao;
+
+				observacao.placeholder = devolucao
+					? 'Obrigatório: informe as peças devolvidas e o motivo.'
+					: 'Ex.: Pagamento parcial';
+
+				observacao.setCustomValidity(
+					devolucao && !observacao.value.trim()
+						? 'Preencha a observação da devolução de mercadorias.'
+						: ''
+				);
+			}
+
+			forma.addEventListener('change', atualizarObservacao);
+			observacao.addEventListener('input', atualizarObservacao);
+
+			atualizarObservacao();
+		})();
+		</script>
     </div>
 </body>
 </html>
@@ -2773,11 +2807,24 @@ app.post('/financeiro/pagamentos', async (req, res) => {
         const forma =
             String(req.body.forma || '').trim();
 
-        const observacao =
-            String(
-                req.body.observacao ||
-                'Pagamento parcial'
-            ).trim();
+        const observacaoInformada =
+			String(req.body.observacao || '').trim();
+
+		if (
+			forma === 'Devolução de Mercadorias' &&
+			!observacaoInformada
+		) {
+			return res.status(400).send(`
+				<h2>Informe a observação da devolução de mercadorias.</h2>
+				<p>Descreva quais peças foram devolvidas e o motivo.</p>
+				<button type="button" onclick="history.back()">
+					Voltar ao formulário
+				</button>
+			`);
+		}
+
+		const observacao =
+			observacaoInformada || 'Pagamento parcial';
 
         if (
             !Number.isInteger(clienteId) ||
