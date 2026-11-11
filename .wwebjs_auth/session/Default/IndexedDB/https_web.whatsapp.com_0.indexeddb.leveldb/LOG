@@ -1,3 +1,9 @@
-2026/10/08-14:55:09.094 4100 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/10/08-14:55:09.094 4100 Recovering log #75
-2026/10/08-14:55:09.170 4100 Reusing old log C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000075.log 
+2026/11/11-02:52:39.455 3ae8 Reusing MANIFEST C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/11/11-02:52:39.456 3ae8 Recovering log #87
+2026/11/11-02:52:39.472 3ae8 Reusing old log C:\Users\David Couto\Desktop\bot_whats_NH\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000087.log 
+2026/11/11-02:52:39.472 3ae8 Delete type=2 #80
+2026/11/11-02:52:39.472 3ae8 Delete type=2 #83
+2026/11/11-02:52:39.472 3ae8 Delete type=2 #84
+2026/11/11-02:52:39.472 3ae8 Delete type=2 #85
+2026/11/11-02:52:39.473 3ae8 Delete type=2 #86
+2026/11/11-02:52:39.473 3ae8 Delete type=2 #88
