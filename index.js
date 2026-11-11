@@ -34,8 +34,155 @@ const db = mysql.createPool({
     connectionLimit: 10
 });
 
+
+/**
+ * Identifica o atendente pelo computador cadastrado.
+ * Utilizada futuramente pela extensão do Chrome.
+ */
+async function buscarAtendentePorComputador(computadorId) {
+    const [atendentes] = await db.execute(`
+        SELECT id, nome, computador_id
+        FROM atendentes_whatsapp
+        WHERE computador_id = ?
+          AND loja = 'novo_hamburgo'
+          AND ativo = 1
+        LIMIT 1
+    `, [computadorId]);
+
+    return atendentes.length > 0
+        ? atendentes[0]
+        : null;
+}
+
+/**
+ * Controle de responsáveis pelas conversas
+ * Coutech Cell - Novo Hamburgo
+ */
+
+const TEMPO_ATENDIMENTO_MINUTOS = 5;
+
+/**
+ * Libera conversas após 5 minutos sem atividade.
+ * Não interfere na pausa da IA.
+ */
+async function liberarConversasInativas() {
+    try {
+        const [resultado] = await db.execute(`
+            UPDATE conversas_atendimento
+            SET atendente_id = NULL
+            WHERE loja = 'novo_hamburgo'
+              AND atendente_id IS NOT NULL
+              AND ultima_atividade <
+                  DATE_SUB(
+                      NOW(3),
+                      INTERVAL 5 MINUTE
+                  )
+        `);
+
+        if (resultado.affectedRows > 0) {
+            console.log(
+                `Atendimentos liberados: ${resultado.affectedRows}`
+            );
+        }
+    } catch (erro) {
+        console.error(
+            'Erro ao liberar atendimentos:',
+            erro.message
+        );
+    }
+}
+
+// Verifica conversas inativas a cada 15 segundos.
+setInterval(liberarConversasInativas, 15000);
+
+// Autenticação provisória da API.
+// O token deve ser configurado no Railway.
+async function autenticarControleAtendimento(req, res, next) {
+    try {
+        const token = req.get('x-atendimento-token');
+
+        if (!token || !/^[a-f0-9]{64}$/.test(token)) {
+            return res.status(401).json({
+                sucesso: false,
+                erro: 'Token inválido ou não informado'
+            });
+        }
+
+        const tokenHash = cryptoEntregas
+            .createHash('sha256')
+            .update(token)
+            .digest('hex');
+
+        const [atendentes] = await db.execute(`
+            SELECT id, nome, computador_id
+            FROM atendentes_whatsapp
+            WHERE token_hash = ?
+              AND loja = 'novo_hamburgo'
+              AND ativo = 1
+            LIMIT 1
+        `, [tokenHash]);
+
+        if (atendentes.length === 0) {
+            return res.status(401).json({
+                sucesso: false,
+                erro: 'Atendente não autorizado'
+            });
+        }
+
+        req.atendente = atendentes[0];
+
+        next();
+
+    } catch (erro) {
+        console.error(
+            'Erro na autenticação do atendimento:',
+            erro.message
+        );
+
+        return res.status(500).json({
+            sucesso: false,
+            erro: 'Erro interno na autenticação'
+        });
+    }
+}
+
 const fs = require("fs");
 const cryptoEntregas = require('crypto');
+
+async function gerarTokensAtendentes() {
+    const crypto = require('crypto');
+
+    const atendentes = [
+        'nh-pc01',
+        'nh-pc02',
+        'nh-pc03',
+        'nh-pc04',
+        'nh-pc05'
+    ];
+
+    for (const computadorId of atendentes) {
+        const token = crypto.randomBytes(32).toString('hex');
+
+        const hash = crypto
+            .createHash('sha256')
+            .update(token)
+            .digest('hex');
+
+        await db.execute(`
+            UPDATE atendentes_whatsapp
+            SET token_hash = ?
+            WHERE computador_id = ?
+              AND loja = 'novo_hamburgo'
+        `, [hash, computadorId]);
+
+        console.log(
+            `TOKEN ${computadorId}: ${token}`
+        );
+    }
+
+    console.log('Tokens dos atendentes gerados.');
+}
+
 const axios = require("axios");
 const cloudinary = require("cloudinary").v2;
 const path = require("path");
@@ -56,6 +203,374 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+
+app.post(
+    '/api/atendimento/assumir',
+    express.json(),
+    autenticarControleAtendimento,
+    async (req, res) => {
+        try {
+            const { chatId } = req.body || {};
+
+            if (
+                typeof chatId !== 'string' ||
+                !/^(?:\d+@c\.us|\d+@lid)$/.test(chatId)
+            ) {
+                return res.status(400).json({
+                    sucesso: false,
+                    erro: 'Identificador da conversa inválido'
+                });
+            }
+
+            // Funcionário identificado pelo token individual.
+            const atendente = req.atendente;
+
+            await db.execute(`
+                INSERT INTO conversas_atendimento
+                    (loja, chat_id, atendente_id, ultima_atividade)
+                VALUES
+                    ('novo_hamburgo', ?, ?, NOW(3))
+                ON DUPLICATE KEY UPDATE
+                    atendente_id = VALUES(atendente_id),
+                    ultima_atividade = NOW(3)
+            `, [chatId, atendente.id]);
+
+            return res.json({
+                sucesso: true,
+                atendente: atendente.nome,
+                chatId,
+                tempoInatividadeMinutos:
+                    TEMPO_ATENDIMENTO_MINUTOS
+            });
+
+        } catch (erro) {
+            console.error(
+                'Erro ao assumir atendimento:',
+                erro
+            );
+
+            return res.status(500).json({
+                sucesso: false,
+                erro: 'Erro interno'
+            });
+        }
+    }
+);
+
+
+/**
+ * Registra qual funcionário enviou uma mensagem.
+ * Coutech Cell - Novo Hamburgo
+ */
+app.post(
+    '/api/atendimento/mensagem/registrar',
+    express.json(),
+    autenticarControleAtendimento,
+    async (req, res) => {
+        try {
+            const chatId = String(req.body?.chatId || '');
+            const mensagemId = String(req.body?.mensagemId || '');
+
+            if (!/^(?:\d+@c\.us|\d+@lid)$/.test(chatId)) {
+                return res.status(400).json({
+                    sucesso: false,
+                    erro: 'Identificador da conversa inválido'
+                });
+            }
+
+            if (
+                !mensagemId ||
+                mensagemId.length > 255
+            ) {
+                return res.status(400).json({
+                    sucesso: false,
+                    erro: 'Identificador da mensagem inválido'
+                });
+            }
+
+            const atendente = req.atendente;
+
+            const [resultado] = await db.execute(`
+                INSERT IGNORE INTO mensagens_atendentes
+                    (mensagem_id, chat_id, atendente_id)
+                VALUES (?, ?, ?)
+            `, [
+                mensagemId,
+                chatId,
+                atendente.id
+            ]);
+
+            return res.json({
+                sucesso: true,
+                registrada: resultado.affectedRows === 1,
+                atendente: atendente.nome,
+                mensagemId
+            });
+
+        } catch (erro) {
+            console.error(
+                'Erro ao registrar autor da mensagem:',
+                erro
+            );
+
+            return res.status(500).json({
+                sucesso: false,
+                erro: 'Erro interno'
+            });
+        }
+    }
+);
+
+
+/**
+ * Consulta os autores das mensagens de uma conversa.
+ * Coutech Cell - Novo Hamburgo
+ */
+app.get(
+    '/api/atendimento/mensagens',
+    autenticarControleAtendimento,
+    async (req, res) => {
+        try {
+            const chatId = String(req.query.chatId || '');
+
+            if (!/^(?:\d+@c\.us|\d+@lid)$/.test(chatId)) {
+                return res.status(400).json({
+                    sucesso: false,
+                    erro: 'Identificador da conversa inválido'
+                });
+            }
+
+            const [mensagens] = await db.execute(`
+                SELECT
+                    m.mensagem_id AS mensagemId,
+                    a.nome AS atendente
+                FROM mensagens_atendentes m
+                INNER JOIN atendentes_whatsapp a
+                    ON a.id = m.atendente_id
+                WHERE m.chat_id = ?
+                ORDER BY m.id DESC
+                LIMIT 500
+            `, [chatId]);
+
+            return res.json({
+                sucesso: true,
+                chatId,
+                mensagens
+            });
+
+        } catch (erro) {
+            console.error(
+                'Erro ao consultar autores das mensagens:',
+                erro
+            );
+
+            return res.status(500).json({
+                sucesso: false,
+                erro: 'Erro interno'
+            });
+        }
+    }
+);
+
+
+/**
+ * Consulta o responsável por uma conversa.
+ * Coutech Cell - Novo Hamburgo
+ */
+app.get(
+    '/api/atendimento/responsavel',
+    autenticarControleAtendimento,
+    async (req, res) => {
+        try {
+            const chatId = String(req.query.chatId || '');
+
+            if (!/^(?:\d+@c\.us|\d+@lid)$/.test(chatId)) {
+                return res.status(400).json({
+                    sucesso: false,
+                    erro: 'Identificador da conversa inválido'
+                });
+            }
+
+            const [conversas] = await db.execute(`
+                SELECT
+                    c.chat_id,
+                    a.nome AS atendente,
+                    c.ultima_atividade,
+                    CASE
+                        WHEN c.atendente_id IS NOT NULL
+                         AND c.ultima_atividade >=
+                             DATE_SUB(NOW(3), INTERVAL 5 MINUTE)
+                        THEN 'ocupado'
+                        ELSE 'disponivel'
+                    END AS status
+                FROM conversas_atendimento c
+                LEFT JOIN atendentes_whatsapp a
+                    ON a.id = c.atendente_id
+                WHERE c.loja = 'novo_hamburgo'
+                  AND c.chat_id = ?
+                LIMIT 1
+            `, [chatId]);
+
+            if (conversas.length === 0) {
+                return res.json({
+                    sucesso: true,
+                    chatId,
+                    status: 'disponivel',
+                    atendente: null
+                });
+            }
+
+            const conversa = conversas[0];
+            const ocupado =
+                conversa.status === 'ocupado' &&
+                Boolean(conversa.atendente);
+
+            return res.json({
+                sucesso: true,
+                chatId,
+                status: ocupado ? 'ocupado' : 'disponivel',
+                atendente: ocupado
+                    ? conversa.atendente
+                    : null
+            });
+
+        } catch (erro) {
+            console.error(
+                'Erro ao consultar responsável:',
+                erro.message
+            );
+
+            return res.status(500).json({
+                sucesso: false,
+                erro: 'Erro interno'
+            });
+        }
+    }
+);
+
+
+app.get(
+    '/api/atendimento/testar-telefone',
+    autenticarControleAtendimento,
+    async (req, res) => {
+        try {
+            if (!client.info) {
+                return res.status(503).json({
+                    sucesso: false,
+                    erro: 'WhatsApp não conectado'
+                });
+            }
+
+            const telefone = String(req.query.telefone || '')
+                .replace(/\D/g, '');
+
+            if (!/^(?:55)?\d{10,11}$/.test(telefone)) {
+                return res.status(400).json({
+                    sucesso: false,
+                    erro: 'Telefone inválido'
+                });
+            }
+
+            const numero = telefone.startsWith('55')
+                ? telefone
+                : `55${telefone}`;
+
+            const resultado = await client.pupPage.evaluate(
+                async (numeroProcurado) => {
+                    const chats = window.require('WAWebCollections')
+                        .Chat.getModelsArray();
+
+                    const encontrados = [];
+
+                    for (const chat of chats) {
+                        const chatId = chat.id?._serialized;
+
+                        if (!chatId || chatId.endsWith('@g.us')) {
+                            continue;
+                        }
+
+                        if (chatId === `${numeroProcurado}@c.us`) {
+                            encontrados.push(chatId);
+                        }
+                    }
+
+                    return {
+                        totalChats: chats.length,
+                        encontrados
+                    };
+                },
+                numero
+            );
+
+            const encontrados = [...resultado.encontrados];
+
+            if (encontrados.length === 0) {
+                const idsLid = await client.pupPage.evaluate(() => {
+                    return window.require('WAWebCollections')
+                        .Chat.getModelsArray()
+                        .map(chat => chat.id?._serialized)
+                        .filter(id => id && id.endsWith('@lid'));
+                });
+
+                console.log('Quantidade de conversas @lid:', idsLid.length);
+
+                for (let i = 0; i < idsLid.length; i += 50) {
+                    const lote = idsLid.slice(i, i + 50);
+
+                    const contatos = await client.getContactLidAndPhone(lote);
+
+                    console.log('DIAGNÓSTICO LID:', JSON.stringify({
+                        quantidade: contatos?.length || 0,
+                        exemplo: contatos?.[0] || null
+                    }, null, 2));
+
+                    for (const contato of contatos || []) {
+                        const telefoneContato = String(contato.pn || '')
+                            .replace(/\D/g, '');
+
+                        if (telefoneContato === numero) {
+                            console.log('CLIENTE LOCALIZADO PELO LID:', {
+                                telefone: telefoneContato,
+                                lid: contato.lid,
+                                pn: contato.pn
+                            });
+                        }
+
+                        if (telefoneContato === numero) {
+                            const lid = contato.lid;
+                            const chatId = typeof lid === 'string'
+                                ? lid
+                                : lid?._serialized;
+
+                            if (chatId && idsLid.includes(chatId)) {
+                                encontrados.push(chatId);
+                            }
+                        }
+                    }
+
+                    if (encontrados.length > 0) break;
+                }
+            }
+
+            return res.json({
+                sucesso: true,
+                telefone: numero,
+                totalChats: resultado.totalChats,
+                encontrados
+            });
+
+        } catch (erro) {
+            console.error('Erro ao testar telefone:', erro);
+
+            return res.status(500).json({
+                sucesso: false,
+                erro: 'Falha ao identificar cliente'
+            });
+        }
+    }
+);
+
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -966,8 +1481,38 @@ client.on("message", async (message) => {
 		return;
 	}
 	
-	const chatId = message.from;
-	const msg = message.body.toLowerCase().trim();
+
+const chatId = message.from;
+
+// ==========================================
+// CONTROLE DE ATENDIMENTO - NOVO HAMBURGO
+// Atualizar atividade quando cliente escreve
+// ==========================================
+try {
+    await db.execute(`
+        INSERT INTO conversas_atendimento
+            (loja, chat_id, ultima_atividade)
+        VALUES
+            ('novo_hamburgo', ?, NOW(3))
+
+        ON DUPLICATE KEY UPDATE
+            atendente_id = IF(
+                ultima_atividade < DATE_SUB(NOW(3), INTERVAL 5 MINUTE),
+                NULL,
+                atendente_id
+            ),
+            ultima_atividade = NOW(3)
+
+    `, [chatId]);
+} catch (erroAtendimento) {
+    console.error(
+        'Erro ao atualizar atividade da conversa:',
+        erroAtendimento.message
+    );
+}
+
+const msg = message.body.toLowerCase().trim();
+
 	
 	if (!msg && !message.hasMedia) {
 		return;
