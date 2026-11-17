@@ -6063,6 +6063,7 @@ app.get(
 							<select name="motoboy" required>
 								<option value="Marcelo">Marcelo</option>
 								<option value="Wellington">Wellington</option>
+								<option value="Peterson">Peterson</option>
 							</select>
 						</div>
 
@@ -9613,7 +9614,8 @@ function prepararColunaColeta() {
 
 const telefonesMotoboys = new Map([
     ['marcelo', '555193480713'],
-    ['wellington', '555189110829']
+    ['wellington', '555189110829'],
+	['peterson', '555181434512']
 ]);
 
 const enviosRotasEmAndamento = new Set();
