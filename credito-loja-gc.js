@@ -153,7 +153,12 @@ function createController(d) {
         situacaoCreditoLoja: cfg.SITUACAO_CREDITO_LOJA_ID
     },
 
-    recebimentos: all.map(r => ({
+    recebimentos: all
+    .filter(r =>
+        String(r.liquidado) !== '1' ||
+        saleNumber(r.descricao) === '6355'
+    )
+    .map(r => ({
         id: r.id,
         descricao: r.descricao,
         valor: r.valor_total,
