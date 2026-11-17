@@ -138,6 +138,29 @@ function createController(d) {
         const cfg = await config(local.id);
         assert(amount > 0 && amount <= local.balance, 'Valor maior que o saldo local ou inválido.');
         const all = await list(cfg), eligible = [];
+		
+		console.log('Diagnóstico — consulta de recebimentos:', {
+    lojaId: cfg.LOJA_ID,
+    clienteId: cfg.client,
+    pagamentoInformado: br(amount),
+    periodoInicio: cfg.from,
+    periodoFim: cfg.to,
+
+    configuracao: {
+        creditoLoja: cfg.FORMA_CREDITO_LOJA_ID,
+        dinheiroPix: cfg.FORMA_DINHEIRO_PIX_ID,
+        situacaoAberto: cfg.SITUACAO_ABERTO_ID,
+        situacaoCreditoLoja: cfg.SITUACAO_CREDITO_LOJA_ID
+    },
+
+    recebimentos: all.map(r => ({
+        id: r.id,
+        descricao: r.descricao,
+        valor: r.valor_total,
+        liquidado: r.liquidado,
+        formaPagamentoId: r.forma_pagamento_id
+    }))
+});
         for (const r of all) {
 			// Considera somente recebimentos ainda não baixados.
 			if (String(r.liquidado) !== '0') {
@@ -183,9 +206,17 @@ function createController(d) {
 					cfg.SITUACAO_CREDITO_LOJA_ID
 				].includes(situacaoAtual);
 
-			if (!creditoLoja && !dinheiroPixAberto) {
-				continue;
-			}
+if (!creditoLoja && !dinheiroPixAberto) {
+    console.log('Diagnóstico — excluído pela forma ou situação:', {
+        recebimentoId: r.id,
+        descricao: m.nome,
+        formaPagamentoId: formaAtual,
+        situacaoId: situacaoAtual,
+        baixado: m.baixado
+    });
+
+    continue;
+}
 
 			assert(
 				String(m.baixado) === '0',
@@ -202,6 +233,21 @@ function createController(d) {
                 fingerprint:signature(snapshot(m)), backup:record,
                 before:all.filter(x=>saleNumber(x.descricao)===code).map(publicSnapshot)});
         }
+		
+		const totalElegivel = eligible.reduce(
+    (soma, recebimento) => soma + recebimento.total,
+    0
+);
+
+console.log('Diagnóstico — resultado do filtro:', {
+    pagamentoInformado: br(amount),
+    totalElegivel: br(totalElegivel),
+    recebimentosElegiveis: eligible.map(r => ({
+        id: r.id,
+        venda: r.code,
+        valor: br(r.total)
+    }))
+});
         const steps = allocate(eligible,amount);
         assert(new Set(steps.map(x=>x.code)).size === steps.length, 'Esta prévia contém dois recebimentos abertos da mesma venda. Confira manualmente antes de prosseguir.');
         return {cfg,local:{id:String(local.id),name:local.nome,balance:local.balance},amount,form,note,
