@@ -192,7 +192,26 @@ function createController(d) {
 				'A listagem mudou durante a consulta. Atualize.'
 			);
 			const code = saleNumber(m.nome);
-            assert(code && /^\d+$/.test(String(m.pedido_id)), 'Recebimento sem vínculo de venda reconhecido.');
+
+if (
+    !code ||
+    !/^\d+$/.test(String(m.pedido_id || ''))
+) {
+    console.error('Recebimento com vínculo não reconhecido:', {
+        recebimentoId: String(m.id || r.id),
+        descricao: String(m.nome || ''),
+        pedidoId: String(m.pedido_id || ''),
+        clienteId: String(m.cliente_id || ''),
+        lojaId: String(m.loja_id || '')
+    });
+
+    throw new Error(
+        'Recebimento ' + String(m.id || r.id) +
+        ' sem vínculo de venda reconhecido. ' +
+        'Confira os detalhes no log do Railway.'
+    );
+}
+
             const parts = record.MovimentacoesFinanceirasParcela;
             assert(parts == null || (Array.isArray(parts) && !parts.filter(Boolean).length), 'Há parcelamento dentro da edição do recebimento. Confira manualmente.');
             const total = screenCents(m.valor_total);
