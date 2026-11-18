@@ -2080,7 +2080,36 @@ console.log(
   '📦 Versão whatsapp-web.js:',
   require('whatsapp-web.js/package.json').version
 );
+// Diagnóstico temporário da preparação dos eventos do WhatsApp.
+const anexarEventosOriginal =
+  client.attachEventListeners.bind(client);
 
+client.attachEventListeners = async function (...args) {
+  console.log('🔎 Iniciando preparação dos eventos do WhatsApp.');
+
+  const avisoDemora = setTimeout(() => {
+    console.warn(
+      '⚠️ A preparação dos eventos ainda não terminou após 30 segundos.'
+    );
+  }, 30000);
+
+  try {
+    const resultado = await anexarEventosOriginal(...args);
+
+    console.log('✅ Preparação dos eventos concluída.');
+
+    return resultado;
+  } catch (erro) {
+    console.error(
+      '❌ Falha ao preparar eventos do WhatsApp:',
+      erro?.stack || String(erro)
+    );
+
+    throw erro;
+  } finally {
+    clearTimeout(avisoDemora);
+  }
+};
 async function iniciarClienteWhatsApp() {
     try {
 console.log("🔄 Iniciando cliente do WhatsApp...");
