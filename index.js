@@ -2273,19 +2273,21 @@ const {
       });
     }
 
-	const mensagem = montarMensagemPedido({
-	  pedido,
-	  cliente,
-	  atendente,
-	  endereco,
-	  cidade,
-	  produtos,
-	  valorProdutos,
-	  desconto,
-	  total,
-	  formaPagamento,
-	  coleta
-	});
+const mensagem = montarMensagemPedido({
+  pedido,
+  cliente,
+  atendente,
+  endereco,
+  cidade,
+  produtos,
+  valorProdutos,
+  desconto,
+  total,
+  valeCompras,
+  restantePagar,
+  formaPagamento,
+  coleta
+});
 
 await client.sendMessage(
   numeroWhatsApp._serialized,
