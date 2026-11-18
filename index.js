@@ -713,7 +713,17 @@ let atendimentoHumano = new Set(); // Armazena usuários em atendimento humano
 let clientesAtendidos = new Set(); // Garante que a mensagem inicial só seja enviada uma vez por cliente
 let silencedChats = new Set(); // Lista de conversas silenciadas
 let ultimoProdutoConsultado = new Map(); // Guardar o últiimo produto consultadoo
+client.on('loading_screen', (percent, message) => {
+  console.log(
+    `⏳ Carregando WhatsApp: ${percent}% — ${message}`
+  );
+});
 
+client.on('authenticated', () => {
+  console.log(
+    '🔐 WhatsApp autenticado. Aguardando ficar pronto...'
+  );
+});
 // Gera o QR Code para autenticação
 client.on("qr", (qr) => {
     console.log("Escaneie este QR Code no WhatsApp Web:");
