@@ -729,6 +729,38 @@ client.on('authenticated', () => {
   console.log(
     '🔐 WhatsApp autenticado. Aguardando ficar pronto...'
   );
+
+  setTimeout(async () => {
+    try {
+      const pagina = client.pupPage;
+
+      if (!pagina || pagina.isClosed()) {
+        console.log('🔎 Diagnóstico: página fechada ou indisponível.');
+        return;
+      }
+
+      const diagnostico = await pagina.evaluate(() => ({
+        paginaCarregada: document.readyState,
+        versaoWhatsApp: window.Debug?.VERSION || null,
+        utilitariosCarregados: typeof window.WWebJS !== 'undefined'
+      }));
+
+      console.log(
+        '🔎 Diagnóstico após autenticação:',
+        JSON.stringify(diagnostico)
+      );
+
+      console.log(
+        '🔎 Cliente pronto:',
+        Boolean(client.info)
+      );
+    } catch (erro) {
+      console.error(
+        '❌ Diagnóstico após autenticação:',
+        erro?.stack || erro
+      );
+    }
+  }, 45000);
 });
 // Gera o QR Code para autenticação
 client.on("qr", (qr) => {
@@ -2043,6 +2075,11 @@ await client.sendMessage(chatId, respostaPreco);
     }
 										
 });
+
+console.log(
+  '📦 Versão whatsapp-web.js:',
+  require('whatsapp-web.js/package.json').version
+);
 
 async function iniciarClienteWhatsApp() {
     try {
