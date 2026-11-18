@@ -256,11 +256,6 @@ app.post(
     }
 );
 
-
-/**
- * Registra qual funcionário enviou uma mensagem.
- * Coutech Cell - Novo Hamburgo
- */
 app.post(
     '/api/atendimento/mensagem/registrar',
     express.json(),
@@ -447,224 +442,7 @@ app.get(
     }
 );
 
-app.get(
-    '/api/atendimento/testar-mensagem',
-    autenticarControleAtendimento,
-    async (req, res) => {
-        try {
-            if (!client.info || !client.pupPage) {
-                return res.status(503).json({
-                    sucesso: false,
-                    erro: 'WhatsApp não conectado'
-                });
-            }
-
-            const mensagemId = String(
-                req.query.mensagemId || ''
-            ).trim();
-
-            if (!/^[a-zA-Z0-9_-]{10,150}$/.test(mensagemId)) {
-                return res.status(400).json({
-                    sucesso: false,
-                    erro: 'ID de mensagem inválido'
-                });
-            }
-
-            const resultado = await client.pupPage.evaluate(
-                (idProcurado) => {
-                    const colecoes = window.require(
-                        'WAWebCollections'
-                    );
-
-                    const mensagens =
-                        colecoes.Msg.getModelsArray();
-
-                    const encontrados = [];
-
-                    for (const mensagem of mensagens) {
-                        const id = mensagem.id;
-
-                        const idInterno =
-                            id?.id || '';
-
-                        const idCompleto =
-                            id?._serialized || '';
-
-                        if (
-                            idInterno !== idProcurado &&
-                            idCompleto !== idProcurado
-                        ) {
-                            continue;
-                        }
-
-                        const chatId =
-                            id?.remote?._serialized ||
-                            mensagem.chatId?._serialized ||
-                            null;
-
-                        if (chatId) {
-                            encontrados.push(chatId);
-                        }
-                    }
-
-                    return {
-                        quantidadeMensagens: mensagens.length,
-                        encontrados: [...new Set(encontrados)]
-                    };
-                },
-                mensagemId
-            );
-
-            const chatId =
-                resultado.encontrados.length === 1
-                    ? resultado.encontrados[0]
-                    : null;
-
-            return res.json({
-                sucesso: true,
-                identificado: Boolean(chatId),
-                chatId,
-                quantidadeMensagens:
-                    resultado.quantidadeMensagens,
-                quantidadeCorrespondencias:
-                    resultado.encontrados.length
-            });
-
-        } catch (erro) {
-            console.error(
-                'Erro no teste de identificação por mensagem:',
-                erro
-            );
-
-            return res.status(500).json({
-                sucesso: false,
-                erro: 'Falha ao consultar mensagem'
-            });
-        }
-    }
-);
-
-app.get(
-    '/api/atendimento/testar-telefone',
-    autenticarControleAtendimento,
-    async (req, res) => {
-        try {
-            if (!client.info) {
-                return res.status(503).json({
-                    sucesso: false,
-                    erro: 'WhatsApp não conectado'
-                });
-            }
-
-            const telefone = String(req.query.telefone || '')
-                .replace(/\D/g, '');
-
-            if (!/^(?:55)?\d{10,11}$/.test(telefone)) {
-                return res.status(400).json({
-                    sucesso: false,
-                    erro: 'Telefone inválido'
-                });
-            }
-
-            const numero = telefone.startsWith('55')
-                ? telefone
-                : `55${telefone}`;
-
-            const resultado = await client.pupPage.evaluate(
-                async (numeroProcurado) => {
-                    const chats = window.require('WAWebCollections')
-                        .Chat.getModelsArray();
-
-                    const encontrados = [];
-
-                    for (const chat of chats) {
-                        const chatId = chat.id?._serialized;
-
-                        if (!chatId || chatId.endsWith('@g.us')) {
-                            continue;
-                        }
-
-                        if (chatId === `${numeroProcurado}@c.us`) {
-                            encontrados.push(chatId);
-                        }
-                    }
-
-                    return {
-                        totalChats: chats.length,
-                        encontrados
-                    };
-                },
-                numero
-            );
-
-            const encontrados = [...resultado.encontrados];
-
-            if (encontrados.length === 0) {
-                const idsLid = await client.pupPage.evaluate(() => {
-                    return window.require('WAWebCollections')
-                        .Chat.getModelsArray()
-                        .map(chat => chat.id?._serialized)
-                        .filter(id => id && id.endsWith('@lid'));
-                });
-
-                console.log('Quantidade de conversas @lid:', idsLid.length);
-
-                for (let i = 0; i < idsLid.length; i += 50) {
-                    const lote = idsLid.slice(i, i + 50);
-
-                    const contatos = await client.getContactLidAndPhone(lote);
-
-                    console.log('DIAGNÓSTICO LID:', JSON.stringify({
-                        quantidade: contatos?.length || 0,
-                        exemplo: contatos?.[0] || null
-                    }, null, 2));
-
-                    for (const contato of contatos || []) {
-                        const telefoneContato = String(contato.pn || '')
-                            .replace(/\D/g, '');
-
-                        if (telefoneContato === numero) {
-                            console.log('CLIENTE LOCALIZADO PELO LID:', {
-                                telefone: telefoneContato,
-                                lid: contato.lid,
-                                pn: contato.pn
-                            });
-                        }
-
-                        if (telefoneContato === numero) {
-                            const lid = contato.lid;
-                            const chatId = typeof lid === 'string'
-                                ? lid
-                                : lid?._serialized;
-
-                            if (chatId && idsLid.includes(chatId)) {
-                                encontrados.push(chatId);
-                            }
-                        }
-                    }
-
-                    if (encontrados.length > 0) break;
-                }
-            }
-
-            return res.json({
-                sucesso: true,
-                telefone: numero,
-                totalChats: resultado.totalChats,
-                encontrados
-            });
-
-        } catch (erro) {
-            console.error('Erro ao testar telefone:', erro);
-
-            return res.status(500).json({
-                sucesso: false,
-                erro: 'Falha ao identificar cliente'
-            });
-        }
-    }
-);
-
+const upload = multer({ storage });
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -690,15 +468,12 @@ try {
 const client = new Client({
     authStrategy: new LocalAuth(),
 
-    authTimeoutMs: 120000,
-
     webVersionCache: {
         type: 'none'
     },
 
-puppeteer: {
-    headless: true,
-    dumpio: false,
+    puppeteer: {
+        headless: true,
 
         executablePath:
             process.env.PUPPETEER_EXECUTABLE_PATH,
