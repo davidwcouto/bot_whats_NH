@@ -2083,8 +2083,36 @@ console.log(
 
 async function iniciarClienteWhatsApp() {
     try {
-        console.log("🔄 Iniciando cliente do WhatsApp...");
-        await client.initialize();
+console.log("🔄 Iniciando cliente do WhatsApp...");
+
+const acompanharPagina = setInterval(() => {
+  const pagina = client.pupPage;
+
+  if (!pagina || pagina.isClosed()) return;
+
+  clearInterval(acompanharPagina);
+
+  pagina.on('pageerror', erro => {
+    console.error(
+      '❌ Erro interno da página WhatsApp:',
+      erro?.stack || String(erro)
+    );
+  });
+
+  pagina.on('error', erro => {
+    console.error(
+      '❌ Falha da página do navegador:',
+      erro?.stack || String(erro)
+    );
+  });
+}, 250);
+
+try {
+  await client.initialize();
+  console.log('🔎 client.initialize() terminou.');
+} finally {
+  clearInterval(acompanharPagina);
+}
     } catch (erro) {
         const mensagem = String(erro?.message || erro);
 
