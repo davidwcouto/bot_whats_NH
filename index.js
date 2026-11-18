@@ -700,7 +700,7 @@ const client = new Client({
 
 puppeteer: {
     headless: true,
-    dumpio: true,
+    dumpio: false,
 
         executablePath:
             process.env.PUPPETEER_EXECUTABLE_PATH,
