@@ -1374,38 +1374,34 @@ client.on("message", async (message) => {
 		return;
 	}
 	
+	const chatId = message.from;
+        // ==========================================
+        // CONTROLE DE ATENDIMENTO - SAPUCAIA
+        // Atualizar atividade quando cliente escreve
+        // ==========================================
+        try {
+            await db.execute(`
+                INSERT INTO conversas_atendimento
+                    (loja, chat_id, ultima_atividade)
+                VALUES
+                    ('sapucaia', ?, NOW(3))
+                
+				ON DUPLICATE KEY UPDATE
+					atendente_id = IF(
+						ultima_atividade < DATE_SUB(NOW(3), INTERVAL 5 MINUTE),
+						NULL,
+						atendente_id
+					),
+					ultima_atividade = NOW(3)
 
-const chatId = message.from;
-
-// ==========================================
-// CONTROLE DE ATENDIMENTO - NOVO HAMBURGO
-// Atualizar atividade quando cliente escreve
-// ==========================================
-try {
-    await db.execute(`
-        INSERT INTO conversas_atendimento
-            (loja, chat_id, ultima_atividade)
-        VALUES
-            ('novo_hamburgo', ?, NOW(3))
-
-        ON DUPLICATE KEY UPDATE
-            atendente_id = IF(
-                ultima_atividade < DATE_SUB(NOW(3), INTERVAL 5 MINUTE),
-                NULL,
-                atendente_id
-            ),
-            ultima_atividade = NOW(3)
-
-    `, [chatId]);
-} catch (erroAtendimento) {
-    console.error(
-        'Erro ao atualizar atividade da conversa:',
-        erroAtendimento.message
-    );
-}
-
-const msg = message.body.toLowerCase().trim();
-
+            `, [chatId]);
+        } catch (erroAtendimento) {
+            console.error(
+                'Erro ao atualizar atividade da conversa:',
+                erroAtendimento.message
+            );
+        }
+	const msg = message.body.toLowerCase().trim();
 	
 	if (!msg && !message.hasMedia) {
 		return;
@@ -1547,7 +1543,7 @@ const msg = message.body.toLowerCase().trim();
 					const texto = String(resultado?.data?.text || "")
 						.toLowerCase();
 						
-					// Ignorar imagens de entregaa
+					// Ignorar imagens de entrega
 					if (
 						texto.includes("entrega moto") ||
 						texto.includes("entrega carro") ||
@@ -1808,72 +1804,10 @@ await client.sendMessage(chatId, respostaPreco);
 										
 });
 
-console.log(
-  '📦 Versão whatsapp-web.js:',
-  require('whatsapp-web.js/package.json').version
-);
-// Diagnóstico temporário da preparação dos eventos do WhatsApp.
-const anexarEventosOriginal =
-  client.attachEventListeners.bind(client);
-
-client.attachEventListeners = async function (...args) {
-  console.log('🔎 Iniciando preparação dos eventos do WhatsApp.');
-
-  const avisoDemora = setTimeout(() => {
-    console.warn(
-      '⚠️ A preparação dos eventos ainda não terminou após 30 segundos.'
-    );
-  }, 30000);
-
-  try {
-    const resultado = await anexarEventosOriginal(...args);
-
-    console.log('✅ Preparação dos eventos concluída.');
-
-    return resultado;
-  } catch (erro) {
-    console.error(
-      '❌ Falha ao preparar eventos do WhatsApp:',
-      erro?.stack || String(erro)
-    );
-
-    throw erro;
-  } finally {
-    clearTimeout(avisoDemora);
-  }
-};
 async function iniciarClienteWhatsApp() {
     try {
-console.log("🔄 Iniciando cliente do WhatsApp...");
-
-const acompanharPagina = setInterval(() => {
-  const pagina = client.pupPage;
-
-  if (!pagina || pagina.isClosed()) return;
-
-  clearInterval(acompanharPagina);
-
-  pagina.on('pageerror', erro => {
-    console.error(
-      '❌ Erro interno da página WhatsApp:',
-      erro?.stack || String(erro)
-    );
-  });
-
-  pagina.on('error', erro => {
-    console.error(
-      '❌ Falha da página do navegador:',
-      erro?.stack || String(erro)
-    );
-  });
-}, 250);
-
-try {
-  await client.initialize();
-  console.log('🔎 client.initialize() terminou.');
-} finally {
-  clearInterval(acompanharPagina);
-}
+        console.log("🔄 Iniciando cliente do WhatsApp...");
+        await client.initialize();
     } catch (erro) {
         const mensagem = String(erro?.message || erro);
 
