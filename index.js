@@ -3221,7 +3221,6 @@ app.get(
     action="/financeiro/pagamentos"
 >
     ${csrfEntregaCampo()}
-
             <input
                 type="hidden"
                 name="cliente_id"
@@ -3279,7 +3278,7 @@ app.get(
 				observacao.required = devolucao;
 
 				observacao.placeholder = devolucao
-					? 'Obrigatório: informe as peças.'
+					? 'Obrigatório: informe as peças devolvidas.'
 					: 'Ex.: Pagamento parcial';
 
 				observacao.setCustomValidity(
