@@ -1244,7 +1244,7 @@ const valeCompras = Number(
 
 if (dados.valorProdutos || valeCompras > 0) {
   mensagem +=
-    `Valor dos produtos: R$ ${dados.valorProdutos || dados.total || '0,00'}\n`;
+    `Total do pedido: R$ ${dados.valorProdutos || dados.total || '0,00'}\n`;
 }
 
 if (dados.desconto && dados.desconto !== '0,00') {
