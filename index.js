@@ -183,8 +183,6 @@ async function gerarTokensAtendentes() {
 }
 
 const axios = require("axios");
-const OpenAI = require("openai");
-const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
 const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
@@ -5853,7 +5851,6 @@ app.get(
                             </select>
                         </div>
 
-
                         <div>
 							<label>Motoboy</label>
 							<select name="motoboy" required>
@@ -8909,7 +8906,7 @@ app.get(
 				ORDER BY id DESC
 			`, [data]);
 			
-						function pagamentoNaConferencia(entrega) {
+			function pagamentoNaConferencia(entrega) {
 				if (
 					entrega.total !== null &&
 					entrega.total !== undefined &&
@@ -9407,7 +9404,6 @@ function prepararColunaColeta() {
 // ENVIAR ROTA AO WHATSAPP DO MOTOBOY
 // ======================================================
 
-
 const telefonesMotoboys = new Map([
     ['marcelo', '555193480713'],
     ['wellington', '555189110829'],
@@ -9523,7 +9519,6 @@ app.post(
                 rota.data_painel,
                 rota.horario_rota
             ]);
-
 			const envioSobResponsabilidade =
 				req.body.assumir_responsabilidade === '1';
 
