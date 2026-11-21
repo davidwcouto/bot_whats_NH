@@ -1788,7 +1788,7 @@ const caminhoImagem = `./fotos/${produto.Imagem}`;
         removerClientesAtendidos(chatId);
 
       } else {
-			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 18h. Sábado de 9h às 14h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo devido a troca do feriado de 20/11.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 		}
         return;
     }
@@ -1861,7 +1861,7 @@ if (!clientesAtendidos.has(chatId)) {
         removerClientesAtendidos(chatId);
 		
       } else {
-            await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo. Nosso horário de atendimento é de Seg a Sex de 9h às 18h. Sábado de 9h às 14h.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
+			await client.sendMessage(chatId, "⏳ No momento, não estamos atendendo devido a troca do feriado de 20/11.\nPor favor, deixe sua mensagem, e retornaremos assim que possível dentro do nosso horário de atendimento.\n\n Agradecemos pela sua compreensão! 😊\n\n Atenciosamente,\n Coutech Cell");
 		}
         return;
     }
