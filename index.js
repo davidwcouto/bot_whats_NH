@@ -668,7 +668,7 @@ app.get('/whatsapp/qr', async (req, res) => {
             </head>
             <body>
                 <h1>COUTECH CELL</h1>
-                <h2>Conectar WhatsApp - Sapucaia</h2>
+                <h2>Conectar WhatsApp - Novo Hamburgo</h2>
 
                 ${imagem
                     ? `<img src="${imagem}">
@@ -687,7 +687,7 @@ app.get('/whatsapp/qr', async (req, res) => {
     }
 });
 
-// Confirma que o bot foi iniciado
+// Confirma que o bot foi iniciadoo
 client.on('ready', async () => {
     console.log("🤖 Bot conectado e pronto para uso!");
 	
